@@ -50,7 +50,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 main { min-height: 0; overflow: hidden; outline: none; }
 
 /* ---------- Home ---------- */
-.home { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 17rem; gap: 1.6rem; padding: 0 2.4rem 1.6rem; }
+.home { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.6rem; padding: 0 2.4rem 1.6rem; }
 .watch { min-width: 0; min-height: 0; overflow-y: auto; scrollbar-width: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.4rem; align-content: start; padding: .5rem; margin: -.5rem; }
 .watch::-webkit-scrollbar { display: none; }
 
@@ -86,6 +86,19 @@ main { min-height: 0; overflow: hidden; outline: none; }
 .card .t { font-weight: 600; font-size: .85rem; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding: 0 .2rem; }
 .card .y { font-size: .75rem; color: var(--dim); padding: 0 .2rem; }
 .card:focus-visible, .card.is-focus { transform: scale(1.04); }
+.thumb.sharp, .hero-art.sharp { animation: sharpen .5s ease; }
+@keyframes sharpen { from { filter: blur(6px); } to { filter: none; } }
+.progress { position: absolute; left: .6rem; right: .6rem; bottom: .6rem; height: .3rem; border-radius: 1rem; background: rgba(255,255,255,.3); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--gold); }
+.btn.small { font-size: .85rem; padding: .35rem .9rem; margin-left: .6rem; }
+.note { color: var(--dim); font-size: .9rem; }
+.upnext { position: absolute; right: 1.6rem; bottom: 4.8rem; width: min(30rem, calc(100% - 3.2rem)); display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 1rem; align-items: center;
+  padding: 1rem; border-radius: 1rem; background: rgba(10,10,10,.92); border: .08rem solid var(--line); box-shadow: 0 1rem 3rem rgba(0,0,0,.6); }
+.upnext .thumb { aspect-ratio: 4/3; }
+.upnext small { display: block; color: var(--gold-light); text-transform: uppercase; letter-spacing: .12em; font-weight: 700; font-size: .75rem; }
+.upnext b { display: block; font-family: var(--display); font-size: 1.2rem; line-height: 1.15; margin: .2rem 0; }
+.upnext span { color: var(--dim); font-size: .85rem; }
+.upnext .btns { margin-top: .6rem; }
 .skeleton .thumb { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .5 } }
 .empty { color: var(--dim); font-size: .9rem; padding: 1rem 0; }

@@ -1,4 +1,8 @@
-// Static data: age profiles, movie shelves, games, and trivia questions.
+// Static data: age groups, profiles, movie rows, games, and trivia questions.
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 
 // Age groups. Each family profile belongs to one; it decides which movie rows show.
 const AGE_GROUPS = [

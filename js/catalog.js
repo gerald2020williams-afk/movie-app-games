@@ -3,10 +3,30 @@
 const Catalog = (() => {
   const API = "https://archive.org/advancedsearch.php";
   const FIELDS = ["identifier", "title", "year", "description", "runtime"];
+  // Only ask for movies that have a video file the app can play.
+  const PLAYABLE = ' AND format:("h.264" OR "h.264 HD" OR "h.264 IA" OR MPEG4 OR "512Kb MPEG4")';
+  const SEARCH_TTL = 12 * 60 * 60 * 1000; // movie lists are kept for 12 hours
+  const INFO_TTL = 7 * 24 * 60 * 60 * 1000; // video and picture links are kept for 7 days
   const memo = new Map();
 
-  function url(q, rows, extra = {}) {
-    const p = new URLSearchParams({ q, rows: String(rows), page: "1", output: "json", ...extra });
+  // ----- device storage (fast reopen) -----
+  function load(key) {
+    try {
+      const v = JSON.parse(localStorage.getItem(key));
+      return v && v.t && Date.now() - v.t < v.ttl ? v.d : null;
+    } catch (_) { return null; }
+  }
+  function store(key, data, ttl) {
+    const value = JSON.stringify({ t: Date.now(), ttl, d: data });
+    try { localStorage.setItem(key, value); }
+    catch (_) {
+      // Storage full: clear old movie lists and try once more.
+      try { Object.keys(localStorage).filter((k) => k.startsWith("ia:")).forEach((k) => localStorage.removeItem(k)); localStorage.setItem(key, value); } catch (_) {}
+    }
+  }
+
+  function url(q, rows) {
+    const p = new URLSearchParams({ q, rows: String(rows), page: "1", output: "json" });
     FIELDS.forEach((f) => p.append("fl[]", f));
     p.append("sort[]", "downloads desc");
     return `${API}?${p}`;
@@ -26,13 +46,7 @@ const Catalog = (() => {
     });
   }
 
-  async function search(q, rows = 24) {
-    const key = q + "|" + rows;
-    if (memo.has(key)) return memo.get(key);
-    try {
-      const cached = sessionStorage.getItem("ia:" + key);
-      if (cached) { const v = JSON.parse(cached); memo.set(key, v); return v; }
-    } catch (_) {}
+  async function fetchSearch(q, rows) {
     const src = url(q, rows);
     let data;
     try {
@@ -42,17 +56,29 @@ const Catalog = (() => {
     } catch (_) {
       data = await jsonp(src);
     }
-    const items = (data.response && data.response.docs || [])
+    return (data.response && data.response.docs || [])
       .filter((d) => d.identifier && d.title)
       .map((d) => ({
         id: d.identifier,
-        title: Array.isArray(d.title) ? d.title[0] : d.title,
-        year: d.year ? String(d.year).slice(0, 4) : "",
-        runtime: d.runtime ? String(Array.isArray(d.runtime) ? d.runtime[0] : d.runtime) : "",
-        description: cleanText(Array.isArray(d.description) ? d.description.join(" ") : d.description || ""),
+        title: first(d.title),
+        year: d.year ? String(first(d.year)).slice(0, 4) : "",
+        runtime: d.runtime ? String(first(d.runtime)) : "",
+        description: cleanText(Array.isArray(d.description) ? d.description.join(" ") : d.description || "").slice(0, 600),
       }));
+  }
+  const first = (v) => (Array.isArray(v) ? v[0] : v);
+
+  async function search(q, rows = 24) {
+    const key = "ia:" + q + "|" + rows;
+    if (memo.has(key)) return memo.get(key);
+    const cached = load(key);
+    if (cached) { memo.set(key, cached); return cached; }
+    let items = await fetchSearch(q + PLAYABLE, rows);
+    // If the playable filter finds nothing, try without it (broken ones get hidden later).
+    if (!items.length) items = await fetchSearch(q, rows);
+    items = items.filter((it) => !isBroken(it.id));
     memo.set(key, items);
-    try { sessionStorage.setItem("ia:" + key, JSON.stringify(items)); } catch (_) {}
+    store(key, items, SEARCH_TTL);
     return items;
   }
 
@@ -62,18 +88,60 @@ const Catalog = (() => {
     return (doc.body.textContent || "").replace(/\s+/g, " ").trim();
   }
 
-  // Find a video file we can play directly, so Play starts the movie with one press.
+  // ----- per-movie details: playable video file and the best picture -----
   const FORMAT_RANK = ["h.264 HD", "h.264", "MPEG4", "h.264 IA", "512Kb MPEG4", "Ogg Video", "WebM"];
-  async function videoFile(id) {
-    const res = await fetch(`https://archive.org/metadata/${encodeURIComponent(id)}/files`);
-    if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    const files = (data.result || data.files || []).filter((f) => FORMAT_RANK.includes(f.format) && /\.(mp4|m4v|ogv|webm)$/i.test(f.name));
-    if (!files.length) throw new Error("no video file");
-    files.sort((a, b) => FORMAT_RANK.indexOf(a.format) - FORMAT_RANK.indexOf(b.format));
-    // Prefer an MP4 (plays everywhere, including iPhones and TVs).
-    const best = files.find((f) => /\.(mp4|m4v)$/i.test(f.name)) || files[0];
-    return `https://archive.org/download/${encodeURIComponent(id)}/${best.name.split("/").map(encodeURIComponent).join("/")}`;
+  const IMAGE_FORMATS = ["JPEG", "PNG", "Animated GIF"];
+  const infoMemo = new Map();
+  let infoCache = null;
+  function infoStore() {
+    if (!infoCache) infoCache = load("ia-info") || {};
+    return infoCache;
+  }
+  function saveInfoStore() {
+    const entries = Object.entries(infoCache);
+    if (entries.length > 800) infoCache = Object.fromEntries(entries.slice(-600));
+    store("ia-info", infoCache, INFO_TTL);
+  }
+  function isBroken(id) { const i = infoStore()[id]; return !!(i && i.broken); }
+
+  // Run at most 4 detail lookups at once so rows don't flood the network.
+  let active = 0;
+  const queue = [];
+  function limited(fn) {
+    return new Promise((resolve, reject) => {
+      const run = () => { active++; fn().then(resolve, reject).finally(() => { active--; if (queue.length) queue.shift()(); }); };
+      active < 4 ? run() : queue.push(run);
+    });
+  }
+
+  function info(id) {
+    if (infoMemo.has(id)) return infoMemo.get(id);
+    const cached = infoStore()[id];
+    if (cached) { const p = Promise.resolve(cached); infoMemo.set(id, p); return p; }
+    const p = limited(async () => {
+      const res = await fetch(`https://archive.org/metadata/${encodeURIComponent(id)}/files`);
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      const files = data.result || data.files || [];
+      const link = (name) => `https://archive.org/download/${encodeURIComponent(id)}/${name.split("/").map(encodeURIComponent).join("/")}`;
+
+      const videos = files.filter((f) => FORMAT_RANK.includes(f.format) && /\.(mp4|m4v|ogv|webm)$/i.test(f.name))
+        .sort((a, b) => FORMAT_RANK.indexOf(a.format) - FORMAT_RANK.indexOf(b.format));
+      // Prefer an MP4 (plays everywhere, including iPhones and TVs).
+      const video = videos.find((f) => /\.(mp4|m4v)$/i.test(f.name)) || videos[0];
+
+      const images = files.filter((f) => IMAGE_FORMATS.includes(f.format) && !/\.thumbs\/|__ia_thumb|_thumb\./i.test(f.name))
+        .sort((a, b) => Number(b.size || 0) - Number(a.size || 0));
+      const result = video
+        ? { src: link(video.name), image: images[0] ? link(images[0].name) : "" }
+        : { broken: true };
+      infoStore()[id] = result;
+      saveInfoStore();
+      return result;
+    });
+    infoMemo.set(id, p);
+    p.catch(() => infoMemo.delete(id)); // network trouble: try again next time
+    return p;
   }
 
   // Many uploads of the same film exist; keep the most popular copy of each title.
@@ -89,8 +157,11 @@ const Catalog = (() => {
 
   return {
     search,
-    videoFile,
-    shelf(shelf) { return search(shelf.q, shelf.dedupe ? 60 : 24).then((items) => (shelf.dedupe ? dedupe(items).slice(0, 18) : items)); },
+    info,
+    isBroken,
+    markBroken(id) { infoStore()[id] = { broken: true }; infoMemo.delete(id); saveInfoStore(); },
+    async videoFile(id) { const i = await info(id); if (!i.src) throw new Error("no video file"); return i.src; },
+    shelf(shelf) { return search(shelf.q, shelf.dedupe ? 60 : 24).then((items) => (shelf.dedupe ? dedupe(items).slice(0, 18) : items).filter((it) => !isBroken(it.id))); },
     // Search titles within the shelves the profile is allowed to see.
     find(term, level) {
       const allowed = SHELVES.filter((s) => s.level <= level).map((s) => `(${s.q})`).join(" OR ");
@@ -100,6 +171,5 @@ const Catalog = (() => {
     },
     image(id) { return `https://archive.org/services/img/${encodeURIComponent(id)}`; },
     embed(id) { return `https://archive.org/embed/${encodeURIComponent(id)}?autoplay=1`; },
-    page(id) { return `https://archive.org/details/${encodeURIComponent(id)}`; },
   };
 })();

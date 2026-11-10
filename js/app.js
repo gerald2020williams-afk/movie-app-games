@@ -65,7 +65,7 @@ const App = (() => {
   function openTab(name) {
     if (!profile && name !== "profiles") name = "profiles";
     stack.length = 0;
-    const views = { home: HomeView, movies: MoviesView, games: GamesView, search: SearchView, profiles: ProfilesView };
+    const views = { home: HomeView, movies: MoviesView, search: SearchView, profiles: ProfilesView };
     mount(views[name]());
   }
 
@@ -76,16 +76,61 @@ const App = (() => {
     return SHELVES.filter((s) => s.level <= level).sort((a, b) => rank(a) - rank(b));
   }
 
-  function cardHtml(item, shelf) {
+  function cardHtml(item, progress) {
+    const pct = progress ? Math.min(100, Math.round((progress.pos / progress.dur) * 100)) : 0;
     return `<button class="f card" data-id="${escapeHtml(item.id)}">
-      <span class="thumb" style="background-image:url('${Catalog.image(item.id)}')"></span>
+      <span class="thumb" style="background-image:url('${Catalog.image(item.id)}')">${pct ? `<span class="progress"><i style="width:${pct}%"></i></span>` : ""}</span>
       <span class="t">${escapeHtml(item.title)}</span>
-      <span class="y">${escapeHtml(item.year || "")}</span>
+      <span class="y">${progress ? `${formatTime(progress.dur - progress.pos)} left` : escapeHtml(item.year || "")}</span>
     </button>`;
   }
 
   function skeletonRow() {
     return Array.from({ length: 6 }, () => `<div class="card skeleton"><span class="thumb"></span></div>`).join("");
+  }
+
+  // As cards scroll into view: swap in a sharper picture, and hide movies that can't play.
+  const upgrader = "IntersectionObserver" in window ? new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      upgrader.unobserve(e.target);
+      const card = e.target;
+      Catalog.info(card.dataset.id).then((info) => {
+        if (info.broken) return hideCard(card);
+        if (info.image) sharpen(card.querySelector(".thumb"), info.image);
+      }).catch(() => {});
+    }
+  }, { rootMargin: "200px 400px" }) : null;
+
+  function sharpen(el, src) {
+    const img = new Image();
+    img.onload = () => { el.style.backgroundImage = `url('${src}')`; el.classList.add("sharp"); };
+    img.src = src;
+  }
+
+  function hideCard(card) {
+    const row = card.parentElement;
+    const wasFocused = document.activeElement === card;
+    if (wasFocused) SpatialNav.move("right") || SpatialNav.move("left");
+    card.remove();
+    if (row && !row.querySelector(".card")) { const s = row.closest(".shelf"); if (s) s.remove(); }
+  }
+
+  function watchCards(container) {
+    if (!upgrader) return;
+    container.querySelectorAll(".card[data-id]").forEach((c) => upgrader.observe(c));
+  }
+
+  // Wire a list of movie cards: choosing one opens its page (or resumes, for Continue Watching).
+  function wireCards(container, items, { resume = false } = {}) {
+    container.querySelectorAll(".card[data-id]").forEach((btn) => btn.addEventListener("click", () => {
+      const item = items.find((x) => x.id === btn.dataset.id);
+      if (!item) return;
+      const list = items.filter((x) => !Catalog.isBroken(x.id));
+      if (resume) go(PlayerView(item, list, { resume: true }));
+      else go(DetailView(item, list));
+    }));
+    watchCards(container);
   }
 
   // Renders a shelf row and wires its cards. Returns a promise of the items.
@@ -95,11 +140,13 @@ const App = (() => {
     return Catalog.shelf(shelf).then((items) => {
       if (!section.isConnected) return items;
       if (!items.length) { section.remove(); return items; }
-      row.innerHTML = items.map((it) => cardHtml(it, shelf)).join("");
-      row.querySelectorAll(".card").forEach((btn, i) => btn.addEventListener("click", () => go(DetailView(items[i], shelf))));
+      row.innerHTML = items.map((it) => cardHtml(it)).join("");
+      wireCards(row, items);
       return items;
     }).catch(() => {
-      if (section.isConnected) row.innerHTML = `<div class="empty">Couldn't reach the movie library. Check your internet connection.</div>`;
+      if (section.isConnected) row.innerHTML = `<div class="empty">Couldn't reach the movie library. <button class="f btn small" data-retry>Try again</button></div>`;
+      const retry = row.querySelector("[data-retry]");
+      if (retry) retry.addEventListener("click", () => fillShelf(section, shelf));
       return [];
     });
   }
@@ -108,20 +155,10 @@ const App = (() => {
     return `<section class="shelf" data-shelf="${shelf.id}"><h2>${shelf.title}</h2><div class="row"></div></section>`;
   }
 
-  function railHtml() {
-    return `<aside class="rail">
-      <h3>Games &amp; Trivia</h3>
-      <div class="hint">Pick one to start</div>
-      <div class="picks">
-        ${GAMES.map((g) => `<button class="f pick" data-game="${g.id}"><span class="ico" style="background:${g.bg}">${g.icon}</span><span><b>${g.name}</b><small>${g.sub}</small></span></button>`).join("")}
-      </div>
-    </aside>`;
-  }
-
-  function startGame(id) {
-    const g = GAMES.find((x) => x.id === id);
-    if (!g) return;
-    go(g.type === "trivia" ? TriviaView(g, api) : SpaceDodgeView(g, api));
+  function continueSection() {
+    const items = History.list(profile.id).filter((x) => !Catalog.isBroken(x.id));
+    if (!items.length) return "";
+    return `<section class="shelf" id="continue"><h2>Continue Watching</h2><div class="row">${items.map((x) => cardHtml(x, x)).join("")}</div></section>`;
   }
 
   // ----- screens -----
@@ -346,22 +383,31 @@ const App = (() => {
               </div>
               <div class="dots" id="hero-dots"></div>
             </div>
+            ${continueSection()}
             ${shelves.map(shelfSection).join("")}
           </div>
-          ${railHtml()}
         </section>`;
-        el.querySelectorAll(".pick").forEach((b) => b.addEventListener("click", () => startGame(b.dataset.game)));
+        const cont = el.querySelector("#continue");
+        if (cont) wireCards(cont, History.list(profile.id), { resume: true });
         SpatialNav.focus(el.querySelector("#hero-play"));
 
         let heroItems = [], heroShelf = shelves[0], heroAt = 0;
         const showHero = () => {
           const it = heroItems[heroAt];
           if (!it) return;
-          el.querySelector("#hero-bg").style.backgroundImage = `url('${Catalog.image(it.id)}')`;
-          el.querySelector("#hero-art").style.backgroundImage = `url('${Catalog.image(it.id)}')`;
+          const img = Catalog.image(it.id);
+          el.querySelector("#hero-bg").style.backgroundImage = `url('${img}')`;
+          el.querySelector("#hero-art").style.backgroundImage = `url('${img}')`;
+          Catalog.info(it.id).then((info) => {
+            if (!info.image || heroItems[heroAt] !== it) return;
+            sharpen(el.querySelector("#hero-art"), info.image);
+            sharpen(el.querySelector("#hero-bg"), info.image);
+          }).catch(() => {});
+          const prog = History.get(profile.id, it.id);
+          el.querySelector("#hero-play").textContent = prog ? `▶ Resume ${formatTime(prog.pos)}` : "▶ Play";
           el.querySelector("#hero-title").textContent = it.title;
-          el.querySelector("#hero-meta").innerHTML = escapeHtml([heroShelf.title, it.year, it.runtime].filter(Boolean).join(" · "));
-          el.querySelector("#hero-desc").textContent = it.description || "A free classic from the Internet Archive.";
+          el.querySelector("#hero-meta").textContent = [heroShelf.title, it.year, it.runtime].filter(Boolean).join(" · ");
+          el.querySelector("#hero-desc").textContent = it.description || "A free movie from the Internet Archive.";
           el.querySelector("#hero-dots").innerHTML = heroItems.map((_, i) => `<i class="${i === heroAt ? "on" : ""}"></i>`).join("");
           startPreview(it);
         };
@@ -386,31 +432,35 @@ const App = (() => {
           }, 2500);
         };
         stopPreview = () => { clearTimeout(previewTimer); heroVideo.pause(); heroVideo.removeAttribute("src"); heroVideo.load(); };
-        el.querySelector("#hero-play").addEventListener("click", () => heroItems[heroAt] && go(PlayerView(heroItems[heroAt])));
-        el.querySelector("#hero-info").addEventListener("click", () => heroItems[heroAt] && go(DetailView(heroItems[heroAt], heroShelf)));
+        el.querySelector("#hero-play").addEventListener("click", () => heroItems[heroAt] && go(PlayerView(heroItems[heroAt], heroItems, { resume: true })));
+        el.querySelector("#hero-info").addEventListener("click", () => heroItems[heroAt] && go(DetailView(heroItems[heroAt], heroItems)));
 
         let heroSet = false;
         const loads = shelves.map((shelf) => fillShelf(el.querySelector(`[data-shelf="${shelf.id}"]`), shelf));
-        // Feature the first row (newest movies) that has anything in it.
+        // Feature playable movies from the first row (newest movies) that has any.
         (async () => {
           for (let i = 0; i < loads.length; i++) {
             const items = await loads[i];
             if (!items.length || !el.isConnected) continue;
+            const candidates = items.slice(0, 8);
+            const infos = await Promise.all(candidates.map((x) => Catalog.info(x.id).catch(() => ({}))));
+            let picks = candidates.filter((x, k) => infos[k].src);
+            if (!picks.length) continue;
+            const described = picks.filter((x) => x.description);
+            picks = (described.length ? described : picks).slice(0, 4);
+            if (!el.isConnected) return;
             heroSet = true;
             heroShelf = shelves[i];
-            heroItems = items.filter((x) => x.description).slice(0, 4);
-            if (!heroItems.length) heroItems = items.slice(0, 4);
+            heroItems = picks;
             showHero();
             rotate = setInterval(() => { heroAt = (heroAt + 1) % heroItems.length; showHero(); }, previewsOn() ? 25000 : 9000);
             return;
           }
-        })();
-        Promise.allSettled(loads).then(() => {
           if (!heroSet && el.isConnected) {
             el.querySelector("#hero-title").textContent = "Can't load movies right now";
-            el.querySelector("#hero-desc").textContent = "Check your internet connection. Games and trivia still work.";
+            el.querySelector("#hero-desc").textContent = "Check your internet connection, then press Try again on a row below.";
           }
-        });
+        })();
       },
       destroy() { clearInterval(rotate); stopPreview(); },
     };
@@ -422,23 +472,15 @@ const App = (() => {
       render(el) {
         const shelves = shelvesFor(profile.level);
         el.innerHTML = `<section class="page"><h1>Movies</h1><p class="sub">Free movies and cartoons for ${escapeHtml(profile.name)}.</p>
+          ${continueSection()}
           ${shelves.map(shelfSection).join("")}</section>`;
-        let focused = false;
+        const cont = el.querySelector("#continue");
+        if (cont) wireCards(cont, History.list(profile.id), { resume: true });
+        let focused = !!cont;
+        if (cont) SpatialNav.focus(cont.querySelector(".card"));
         shelves.forEach((s) => fillShelf(el.querySelector(`[data-shelf="${s.id}"]`), s).then(() => {
           if (!focused && el.querySelector(".card.f")) { focused = true; SpatialNav.focus(el.querySelector(".card.f")); }
         }));
-      },
-    };
-  }
-
-  function GamesView() {
-    return {
-      tab: "games",
-      render(el) {
-        el.innerHTML = `<section class="page"><h1>Games &amp; Trivia</h1><p class="sub">Pick one to start. Trivia answers use the A, B, X and Y buttons.</p>
-          <div class="grid-games">${GAMES.map((g) => `<button class="f game-card" data-game="${g.id}" style="background:${g.bg}"><b>${g.name}</b><small>${g.sub}</small></button>`).join("")}</div></section>`;
-        el.querySelectorAll(".game-card").forEach((b) => b.addEventListener("click", () => startGame(b.dataset.game)));
-        SpatialNav.focus(el.querySelector(".game-card"));
       },
     };
   }
@@ -453,7 +495,6 @@ const App = (() => {
           <div class="results" id="results"></div></section>`;
         const input = el.querySelector("#q");
         const results = el.querySelector("#results");
-        const shelf = { level: profile.level };
         input.addEventListener("input", () => {
           clearTimeout(timer);
           const term = input.value.trim();
@@ -461,10 +502,11 @@ const App = (() => {
           timer = setTimeout(() => {
             results.innerHTML = `<div class="empty">Searching…</div>`;
             Catalog.find(term, profile.level).then((items) => {
+              items = items.filter((x) => !Catalog.isBroken(x.id));
               if (!items.length) { results.innerHTML = `<div class="empty">No movies found for “${escapeHtml(term)}”.</div>`; return; }
-              results.innerHTML = items.map((it) => cardHtml(it, shelf)).join("");
-              results.querySelectorAll(".card").forEach((b, i) => b.addEventListener("click", () => go(DetailView(items[i], shelf))));
-            }).catch(() => { results.innerHTML = `<div class="empty">Couldn't reach the movie library.</div>`; });
+              results.innerHTML = items.map((it) => cardHtml(it)).join("");
+              wireCards(results, items);
+            }).catch(() => { results.innerHTML = `<div class="empty">Couldn't reach the movie library. Check your internet connection.</div>`; });
           }, 450);
         });
         input.focus();
@@ -473,26 +515,75 @@ const App = (() => {
     };
   }
 
-  function DetailView(item, shelf) {
+  function DetailView(item, list = []) {
     return {
       tab: current ? current.tab : "home",
       render(el) {
+        const prog = History.get(profile.id, item.id);
         el.innerHTML = `<section class="detail">
-          <span class="thumb" style="background-image:url('${Catalog.image(item.id)}')"></span>
+          <span class="thumb" id="detail-art" style="background-image:url('${Catalog.image(item.id)}')"></span>
           <div>
             <h1>${escapeHtml(item.title)}</h1>
             <div class="meta">${escapeHtml([item.year, item.runtime].filter(Boolean).join(" · "))}</div>
-            <p>${escapeHtml(item.description || "A free classic from the Internet Archive.")}</p>
-            <div class="btns"><button class="f btn gold" id="play">▶ Play</button><button class="f btn" id="back">Back</button></div>
+            <p>${escapeHtml(item.description || "A free movie from the Internet Archive.")}</p>
+            <div class="btns">
+              ${prog ? `<button class="f btn gold" id="resume">▶ Resume ${formatTime(prog.pos)}</button><button class="f btn" id="play">Start over</button>`
+                     : `<button class="f btn gold" id="play">▶ Play</button>`}
+              <button class="f btn" id="back">Back</button>
+            </div>
+            <p class="note" id="detail-note" hidden></p>
           </div></section>`;
-        el.querySelector("#play").addEventListener("click", () => go(PlayerView(item)));
+        const resume = el.querySelector("#resume");
+        if (resume) resume.addEventListener("click", () => go(PlayerView(item, list, { resume: true })));
+        el.querySelector("#play").addEventListener("click", () => go(PlayerView(item, list, { resume: false })));
         el.querySelector("#back").addEventListener("click", back);
-        SpatialNav.focus(el.querySelector("#play"));
+        SpatialNav.focus(resume || el.querySelector("#play"));
+        Catalog.info(item.id).then((info) => {
+          if (info.image) sharpen(el.querySelector("#detail-art"), info.image);
+          if (info.broken) {
+            const note = el.querySelector("#detail-note");
+            note.hidden = false;
+            note.textContent = "This movie can't be played right now. Try another one.";
+          }
+        }).catch(() => {});
       },
     };
   }
 
-  function PlayerView(item) {
+  // Plays a movie. `list` is the row it came from, used for "Up next".
+  function PlayerView(item, list = [], { resume = true } = {}) {
+    let saveTimer = 0, countdown = 0, video = null;
+    const saveProgress = () => { if (video && video.currentTime) History.save(profile.id, item, video.currentTime, video.duration); };
+    const nextItem = () => {
+      const i = list.findIndex((x) => x.id === item.id);
+      for (let k = i + 1; k < list.length; k++) if (!Catalog.isBroken(list[k].id)) return list[k];
+      return null;
+    };
+    function fallback(wrap) {
+      // Use the Internet Archive's own player if the file won't play here.
+      if (!wrap.isConnected) return;
+      wrap.innerHTML = `<iframe src="${Catalog.embed(item.id)}" title="${escapeHtml(item.title)}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+    }
+    function showUpNext(el, next) {
+      const box = el.querySelector("#upnext");
+      let left = 10;
+      box.innerHTML = `
+        <span class="thumb" style="background-image:url('${Catalog.image(next.id)}')"></span>
+        <div><small>Up next</small><b>${escapeHtml(next.title)}</b><span id="upnext-count">Starts in ${left} seconds</span>
+          <div class="btns"><button class="f btn gold" id="next-now">▶ Play now</button><button class="f btn" id="next-cancel">Cancel</button></div></div>`;
+      box.hidden = false;
+      Catalog.info(next.id).then((info) => { if (info.image) sharpen(box.querySelector(".thumb"), info.image); }).catch(() => {});
+      const playNext = () => { clearInterval(countdown); replace(PlayerView(next, list, { resume: true })); };
+      box.querySelector("#next-now").addEventListener("click", playNext);
+      box.querySelector("#next-cancel").addEventListener("click", () => { clearInterval(countdown); box.hidden = true; SpatialNav.focus(el.querySelector("#back")); });
+      SpatialNav.focus(box.querySelector("#next-now"));
+      countdown = setInterval(() => {
+        left--;
+        const c = box.querySelector("#upnext-count");
+        if (c) c.textContent = `Starts in ${left} second${left === 1 ? "" : "s"}`;
+        if (left <= 0) playNext();
+      }, 1000);
+    }
     return {
       tab: current ? current.tab : "home",
       render(el) {
@@ -502,28 +593,55 @@ const App = (() => {
           <div class="screen-wrap" id="wrap">
             <video class="f" id="video" controls playsinline preload="auto" poster="${Catalog.image(item.id)}"></video>
             <div class="loading" id="loading">Loading movie…</div>
+            <div class="upnext" id="upnext" hidden></div>
           </div>
         </section>`;
-        const video = el.querySelector("#video");
+        video = el.querySelector("#video");
         const wrap = el.querySelector("#wrap");
         el.querySelector("#back").addEventListener("click", back);
         el.querySelector("#full").addEventListener("click", () => fullscreen(video));
         SpatialNav.focus(video);
 
-        // Play the movie file directly so one press of Play is enough.
-        Catalog.videoFile(item.id).then((src) => {
+        const prog = resume ? History.get(profile.id, item.id) : null;
+        Catalog.info(item.id).then((info) => {
           if (!video.isConnected) return;
-          video.src = src;
-          el.querySelector("#loading").hidden = true;
+          if (!info.src) { fallback(wrap); return; }
+          if (info.image) video.poster = info.image;
+          video.src = info.src;
+          if (prog) {
+            video.addEventListener("loadedmetadata", () => { video.currentTime = prog.pos; }, { once: true });
+            toast(`Resuming at ${formatTime(prog.pos)}`);
+          }
           video.play().catch(() => toast("Press OK or tap the movie to start"));
         }).catch(() => {
-          // Fall back to the Internet Archive's own player.
-          if (!wrap.isConnected) return;
-          wrap.innerHTML = `<iframe src="${Catalog.embed(item.id)}" title="${escapeHtml(item.title)}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+          const l = el.querySelector("#loading");
+          if (l) l.innerHTML = `Couldn't load the movie. Check your internet connection. <button class="f btn small" id="retry">Try again</button>`;
+          const r = el.querySelector("#retry");
+          if (r) { r.addEventListener("click", () => replace(PlayerView(item, list, { resume }))); SpatialNav.focus(r); }
+        });
+
+        video.addEventListener("playing", () => { el.querySelector("#loading").hidden = true; });
+        video.addEventListener("waiting", () => { const l = el.querySelector("#loading"); l.textContent = "Loading…"; l.hidden = false; });
+        video.addEventListener("error", () => {
+          if (!video.getAttribute("src")) return;
+          // Only a file that can't be played at all is marked broken; network hiccups aren't.
+          if (video.error && video.error.code === 4) Catalog.markBroken(item.id);
+          History.remove(profile.id, item.id);
+          toast("This movie won't play here. Trying another player.");
+          fallback(wrap);
+        });
+        video.addEventListener("timeupdate", () => {
+          if (Date.now() - saveTimer > 5000) { saveTimer = Date.now(); saveProgress(); }
+        });
+        video.addEventListener("pause", saveProgress);
+        video.addEventListener("ended", () => {
+          History.remove(profile.id, item.id);
+          if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+          const next = nextItem();
+          if (next) showUpNext(el, next);
         });
       },
       onAction(action) {
-        const video = view.querySelector("#video");
         if (!video || document.activeElement !== video) return false;
         if (action === "ok" || action === "a") { video.paused ? video.play() : video.pause(); return true; }
         if (action === "left") { video.currentTime = Math.max(0, video.currentTime - 10); toast("Back 10 seconds"); return true; }
@@ -532,8 +650,11 @@ const App = (() => {
         return false;
       },
       destroy() {
-        const video = view.querySelector("#video");
-        if (video) { video.pause(); video.removeAttribute("src"); video.load(); }
+        clearInterval(countdown);
+        if (video) {
+          saveProgress();
+          video.pause(); video.removeAttribute("src"); video.load();
+        }
         if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       },
     };
