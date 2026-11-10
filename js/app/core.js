@@ -71,7 +71,7 @@ function back() {
 function openTab(name) {
   if (!profile && name !== "profiles") name = "profiles";
   stack.length = 0;
-  const views = { home: HomeView, movies: MoviesView, search: SearchView, profiles: ProfilesView };
+  const views = { home: HomeView, live: LiveView, movies: MoviesView, search: SearchView, profiles: ProfilesView };
   mount(views[name]());
 }
 

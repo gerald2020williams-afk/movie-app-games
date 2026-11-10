@@ -101,6 +101,19 @@ const SHELVES = [
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(horror)" },
 ];
 
+// Live Channels: movies from these rows play back to back on a fixed schedule, like TV.
+// Everyone who tunes in at the same time sees the same movie at the same spot.
+const CHANNELS = [
+  { id: "ch-cartoons", name: "Cartoon Classics", level: 0, shelves: ["cartoons", "popeye", "superman", "animation"], minutes: 7 },
+  { id: "ch-family", name: "Family Movie Night", level: 0, shelves: ["family-night", "new-family"], minutes: 75 },
+  { id: "ch-holiday", name: "Holiday Channel", level: 0, shelves: ["holiday"], minutes: 30 },
+  { id: "ch-nature", name: "Nature & Animals", level: 0, shelves: ["nature", "documentaries"], minutes: 20 },
+  { id: "ch-comedy", name: "Comedy Channel", level: 1, shelves: ["golden-comedy", "comedy", "chaplin", "keaton", "silent"], minutes: 60 },
+  { id: "ch-westerns", name: "Western Channel", level: 1, shelves: ["westerns"], minutes: 60 },
+  { id: "ch-scifi", name: "Sci-Fi Channel", level: 2, shelves: ["classic-scifi", "scifi", "new-teens"], minutes: 75 },
+  { id: "ch-noir", name: "Noir Night", level: 3, shelves: ["noir-essentials", "noir"], minutes: 75 },
+];
+
 const GAMES = [
   { id: "movie-trivia", name: "Movie Trivia", sub: "Movie questions", icon: "?", bg: "linear-gradient(135deg,#6366f1,#1e1b4b)", type: "trivia", bank: "movies" },
   { id: "animal-quiz", name: "Animal Quiz", sub: "Animal questions", icon: "?", bg: "linear-gradient(135deg,#f59e0b,#78350f)", type: "trivia", bank: "animals" },
