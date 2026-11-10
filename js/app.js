@@ -4,22 +4,20 @@ const App = (() => {
   const view = document.getElementById("view");
   const stack = []; // [{ v: view object, focus: index of focused item }]
   let current = null;
-  let profile = loadProfile();
+  let profile = Profiles.current();
+  // A locked profile (Teens/Adults) always asks for the parent PIN again when the app opens.
+  if (profile && profile.locked && Profiles.hasPin()) profile = null;
 
   // ----- helpers -----
-  function loadProfile() {
-    try { return PROFILES.find((p) => p.id === localStorage.getItem("profile")) || null; } catch (_) { return null; }
-  }
   function setProfile(p) {
     profile = p;
-    try { localStorage.setItem("profile", p.id); } catch (_) {}
+    Profiles.setCurrent(p ? p.id : null);
     updateWho();
   }
   function updateWho() {
     document.getElementById("who-name").textContent = profile ? profile.name : "Pick a profile";
     const av = document.getElementById("who-avatar");
-    av.textContent = profile ? profile.letter : "?";
-    av.style.background = profile ? profile.color : "";
+    av.outerHTML = profile ? Profiles.avatar(profile, "avatar").replace('class="avatar"', 'class="avatar" id="who-avatar"') : `<span class="avatar" id="who-avatar">?</span>`;
   }
   let toastTimer = 0;
   function toast(msg) {
@@ -131,24 +129,206 @@ const App = (() => {
     return {
       tab: "profiles",
       render(el) {
+        const list = Profiles.all();
         el.innerHTML = `<section class="profiles">
           <h1>Who's watching?</h1>
           <div class="profile-list">
-            ${PROFILES.map((p) => `<button class="f profile${profile && profile.id === p.id ? " current" : ""}" data-id="${p.id}">
-              <span class="pic" style="background:${p.color}">${p.letter}</span><b>${p.name}</b><small>${p.ages}</small></button>`).join("")}
+            ${list.map((p) => `<button class="f profile${profile && profile.id === p.id ? " current" : ""}" data-id="${p.id}">
+              ${Profiles.avatar(p)}<b>${escapeHtml(p.name)}</b><small>${p.group}${p.locked && Profiles.hasPin() ? " · Locked" : ""}</small></button>`).join("")}
+            ${list.length < MAX_PROFILES ? `<button class="f profile add" id="add-profile"><span class="pic">+</span><b>Add profile</b><small>&nbsp;</small></button>` : ""}
           </div>
+          <div class="btns center"><button class="f btn" id="manage">Manage profiles &amp; parent PIN</button></div>
         </section>`;
-        el.querySelectorAll(".profile").forEach((b) => b.addEventListener("click", () => {
-          setProfile(PROFILES.find((p) => p.id === b.dataset.id));
-          openTab("home");
+        el.querySelectorAll(".profile[data-id]").forEach((b) => b.addEventListener("click", () => {
+          const p = Profiles.get(b.dataset.id);
+          const enter = () => { setProfile(p); openTab("home"); };
+          if (!p.locked) return enter();
+          if (Profiles.hasPin()) return go(PinView({ mode: "check", title: `Enter the parent PIN for ${p.name}`, onDone: enter }));
+          // First locked profile ever chosen: the parent sets up a PIN.
+          go(PinView({ mode: "create", title: "Set up a parent PIN", note: `${p.name} is locked so younger kids can't open it. Choose 4 numbers only parents know.`, onDone: enter }));
         }));
+        const add = el.querySelector("#add-profile");
+        if (add) add.addEventListener("click", () => withParent(() => EditProfileView(null)));
+        el.querySelector("#manage").addEventListener("click", () => withParent(() => ParentView()));
         SpatialNav.focus(el.querySelector(".profile.current") || el.querySelector(".profile"));
       },
     };
   }
 
+  // Runs `fn` after the parent PIN is entered (or right away if no PIN is set yet).
+  // Opens a parent-only screen, asking for the parent PIN first when one is set.
+  function withParent(makeView) {
+    if (!Profiles.hasPin()) return go(makeView());
+    go(PinView({ mode: "check", title: "Enter the parent PIN", onDone: () => mount(makeView()) }));
+  }
+
+  // Number pad that works with a controller, remote, keyboard or touch.
+  function PinView({ mode, title, note = "", onDone }) {
+    let digits = "", first = null, stage = mode; // stage: "check" | "create" | "confirm"
+    let el;
+    const prompts = { check: title, create: title, confirm: "Enter the same PIN again" };
+    function draw() {
+      el.querySelector("#pin-title").textContent = prompts[stage];
+      el.querySelector("#pin-dots").innerHTML = [0, 1, 2, 3].map((i) => `<i class="${i < digits.length ? "on" : ""}"></i>`).join("");
+    }
+    async function complete() {
+      if (stage === "check") {
+        if (await Profiles.checkPin(digits)) { onDone(); return; }
+        digits = ""; draw(); toast("Wrong PIN. Try again.");
+      } else if (stage === "create") {
+        first = digits; digits = ""; stage = "confirm"; draw();
+      } else {
+        if (digits === first) { await Profiles.setPin(digits); toast("Parent PIN saved"); stack.pop(); onDone(); return; }
+        digits = ""; first = null; stage = "create"; draw(); toast("Those didn't match. Start again.");
+      }
+    }
+    function press(k) {
+      if (k === "del") digits = digits.slice(0, -1);
+      else if (k === "clear") digits = "";
+      else if (digits.length < 4) digits += k;
+      draw();
+      if (digits.length === 4) setTimeout(complete, 150);
+    }
+    return {
+      tab: "profiles",
+      render(root) {
+        el = root;
+        const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "del"];
+        root.innerHTML = `<section class="pin">
+          <h1 id="pin-title"></h1>
+          ${note ? `<p class="sub">${escapeHtml(note)}</p>` : ""}
+          <div class="pin-dots" id="pin-dots"></div>
+          <div class="pad-grid">${keys.map((k) => `<button class="f key-btn" data-k="${k}">${k === "del" ? "⌫" : k === "clear" ? "Clear" : k}</button>`).join("")}</div>
+          ${mode === "check" ? `<p class="sub small">Forgot the PIN? Clear this site's data in the browser settings to reset it.</p>` : ""}
+        </section>`;
+        root.querySelectorAll(".key-btn").forEach((b) => b.addEventListener("click", () => press(b.dataset.k)));
+        draw();
+        SpatialNav.focus(root.querySelector('[data-k="5"]'));
+      },
+      onAction(action, ev) {
+        // Number keys on a keyboard type digits (they don't mean A/B/X/Y here).
+        if (ev && /^[0-9]$/.test(ev.key)) { press(ev.key); return true; }
+        if (ev && ev.key === "Backspace") { press("del"); return true; }
+        return false;
+      },
+    };
+  }
+
+  function ParentView() {
+    return {
+      tab: "profiles",
+      render(el) {
+        const list = Profiles.all();
+        el.innerHTML = `<section class="page narrow">
+          <h1>Manage profiles</h1>
+          <p class="sub">Pick a profile to change its name, picture or age group.</p>
+          <div class="manage-list">
+            ${list.map((p) => `<button class="f manage-row" data-id="${p.id}">${Profiles.avatar(p)}<span><b>${escapeHtml(p.name)}</b><small>${p.group} · ${p.ages}${p.locked ? " · Needs parent PIN" : ""}</small></span><span class="go">Edit</span></button>`).join("")}
+          </div>
+          <div class="btns">
+            ${list.length < MAX_PROFILES ? `<button class="f btn gold" id="add">+ Add profile</button>` : ""}
+            <button class="f btn" id="pin">${Profiles.hasPin() ? "Change parent PIN" : "Set up parent PIN"}</button>
+            ${Profiles.hasPin() ? `<button class="f btn" id="nopin">Turn off parent PIN</button>` : ""}
+            <button class="f btn" id="done">Done</button>
+          </div>
+        </section>`;
+        el.querySelectorAll(".manage-row").forEach((b) => b.addEventListener("click", () => go(EditProfileView(Profiles.get(b.dataset.id)))));
+        const add = el.querySelector("#add");
+        if (add) add.addEventListener("click", () => go(EditProfileView(null)));
+        el.querySelector("#pin").addEventListener("click", () => go(PinView({ mode: "create", title: "Choose a new parent PIN", onDone: () => mount(ParentView()) })));
+        const nopin = el.querySelector("#nopin");
+        if (nopin) nopin.addEventListener("click", () => { Profiles.clearPin(); toast("Parent PIN turned off"); mount(ParentView()); });
+        el.querySelector("#done").addEventListener("click", () => openTab("profiles"));
+        SpatialNav.focus(el.querySelector(".manage-row"));
+      },
+    };
+  }
+
+  function EditProfileView(existing) {
+    const p = existing ? { ...existing } : { id: Profiles.newId(), name: "", level: 1, color: PROFILE_COLORS[Profiles.all().length % PROFILE_COLORS.length], locked: false };
+    return {
+      tab: "profiles",
+      render(el) {
+        el.innerHTML = `<section class="page narrow">
+          <h1>${existing ? "Edit profile" : "Add profile"}</h1>
+          <div class="edit-grid">
+            <div class="edit-pic">
+              <div id="preview"></div>
+              <label class="f btn" tabindex="0" id="photo-btn">Choose photo<input type="file" id="photo" accept="image/*" hidden></label>
+              <button class="f btn" id="photo-remove" ${p.photo ? "" : "hidden"}>Remove photo</button>
+            </div>
+            <div class="edit-fields">
+              <label class="field"><span>Name</span><input class="f" id="name" maxlength="20" value="${escapeHtml(p.name)}" placeholder="Name" autocomplete="off"></label>
+              <div class="field"><span>Age group</span><div class="chips">${AGE_GROUPS.map((g) => `<button class="f chip-btn${g.level === p.level ? " on" : ""}" data-level="${g.level}">${g.name}<small>${g.ages}</small></button>`).join("")}</div></div>
+              <div class="field"><span>Color</span><div class="chips">${PROFILE_COLORS.map((c) => `<button class="f swatch${c === p.color ? " on" : ""}" data-color="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join("")}</div></div>
+              <div class="field"><span>Parent PIN</span><button class="f chip-btn toggle${p.locked ? " on" : ""}" id="locked">${p.locked ? "Needs parent PIN to open" : "Opens without a PIN"}</button></div>
+              <div class="btns">
+                <button class="f btn gold" id="save">Save</button>
+                <button class="f btn" id="cancel">Cancel</button>
+                ${existing && Profiles.all().length > 1 ? `<button class="f btn danger" id="delete">Delete profile</button>` : ""}
+              </div>
+            </div>
+          </div>
+        </section>`;
+        const preview = () => {
+          const d = Profiles.get(p.id) ? { ...Profiles.get(p.id), ...p } : { ...p, letter: (p.name.trim()[0] || "?").toUpperCase() };
+          d.letter = (p.name.trim()[0] || "?").toUpperCase();
+          el.querySelector("#preview").innerHTML = Profiles.avatar(d, "pic big");
+          el.querySelector("#photo-remove").hidden = !p.photo;
+        };
+        preview();
+        const name = el.querySelector("#name");
+        name.addEventListener("input", () => { p.name = name.value; preview(); });
+        el.querySelectorAll("[data-level]").forEach((b) => b.addEventListener("click", () => {
+          p.level = +b.dataset.level;
+          if (p.level >= 2 && !existing) { p.locked = true; }
+          el.querySelectorAll("[data-level]").forEach((x) => x.classList.toggle("on", x === b));
+          syncLock();
+        }));
+        el.querySelectorAll("[data-color]").forEach((b) => b.addEventListener("click", () => {
+          p.color = b.dataset.color;
+          el.querySelectorAll("[data-color]").forEach((x) => x.classList.toggle("on", x === b));
+          preview();
+        }));
+        const lockBtn = el.querySelector("#locked");
+        function syncLock() {
+          lockBtn.classList.toggle("on", !!p.locked);
+          lockBtn.textContent = p.locked ? "Needs parent PIN to open" : "Opens without a PIN";
+        }
+        lockBtn.addEventListener("click", () => { p.locked = !p.locked; syncLock(); });
+        const file = el.querySelector("#photo");
+        file.addEventListener("change", async () => {
+          if (!file.files[0]) return;
+          try { p.photo = await photoToDataUrl(file.files[0]); preview(); } catch (_) { toast("That file isn't a picture"); }
+        });
+        el.querySelector("#photo-remove").addEventListener("click", () => { delete p.photo; preview(); });
+        el.querySelector("#save").addEventListener("click", () => {
+          p.name = name.value.trim();
+          if (!p.name) { toast("Type a name first"); SpatialNav.focus(name); return; }
+          try { Profiles.save(p); } catch (_) { toast("Couldn't save. Try a smaller photo."); return; }
+          if (profile && profile.id === p.id) setProfile(Profiles.get(p.id));
+          toast("Saved");
+          back();
+        });
+        el.querySelector("#cancel").addEventListener("click", back);
+        const del = el.querySelector("#delete");
+        if (del) {
+          let armed = false;
+          del.addEventListener("click", () => {
+            if (!armed) { armed = true; del.textContent = "Press again to delete"; return; }
+            Profiles.remove(p.id);
+            if (profile && profile.id === p.id) setProfile(null);
+            toast("Profile deleted");
+            back();
+          });
+        }
+        SpatialNav.focus(existing ? el.querySelector("#save") : name);
+      },
+    };
+  }
+
   function HomeView() {
-    let rotate = 0;
+    let rotate = 0, previewTimer = 0, stopPreview = () => {};
     return {
       tab: "home",
       render(el) {
@@ -156,7 +336,7 @@ const App = (() => {
         el.innerHTML = `<section class="home">
           <div class="watch">
             <div class="hero" id="hero">
-              <div class="hero-bg" id="hero-bg"></div><div class="hero-shade"></div><div class="hero-art" id="hero-art"></div>
+              <div class="hero-bg" id="hero-bg"></div><video class="hero-video" id="hero-video" muted playsinline loop preload="none" aria-hidden="true"></video><div class="hero-shade"></div><div class="hero-art" id="hero-art"></div>
               <div class="hero-copy">
                 <span class="tag">Picks for ${escapeHtml(profile.name)}</span>
                 <h1 id="hero-title">Loading movies…</h1>
@@ -183,31 +363,56 @@ const App = (() => {
           el.querySelector("#hero-meta").innerHTML = `<span class="rating">${AGE_LABELS[heroShelf.level]}</span> ${escapeHtml([heroShelf.title, it.year, it.runtime].filter(Boolean).join(" · "))}`;
           el.querySelector("#hero-desc").textContent = it.description || "A free classic from the Internet Archive.";
           el.querySelector("#hero-dots").innerHTML = heroItems.map((_, i) => `<i class="${i === heroAt ? "on" : ""}"></i>`).join("");
+          startPreview(it);
         };
+
+        // A short silent preview plays behind the featured movie after a moment (big screens only).
+        const heroVideo = el.querySelector("#hero-video");
+        const previewsOn = () => matchMedia("(min-width: 761px)").matches
+          && !matchMedia("(prefers-reduced-motion: reduce)").matches
+          && !(navigator.connection && navigator.connection.saveData);
+        const startPreview = (it) => {
+          clearTimeout(previewTimer);
+          heroVideo.classList.remove("playing");
+          heroVideo.pause();
+          if (!previewsOn()) return;
+          previewTimer = setTimeout(() => {
+            Catalog.videoFile(it.id).then((src) => {
+              if (!heroVideo.isConnected || heroItems[heroAt] !== it) return;
+              heroVideo.src = src + "#t=45";
+              heroVideo.onplaying = () => heroVideo.classList.add("playing");
+              heroVideo.play().catch(() => {});
+            }).catch(() => {});
+          }, 2500);
+        };
+        stopPreview = () => { clearTimeout(previewTimer); heroVideo.pause(); heroVideo.removeAttribute("src"); heroVideo.load(); };
         el.querySelector("#hero-play").addEventListener("click", () => heroItems[heroAt] && go(PlayerView(heroItems[heroAt])));
         el.querySelector("#hero-info").addEventListener("click", () => heroItems[heroAt] && go(DetailView(heroItems[heroAt], heroShelf)));
 
         let heroSet = false;
-        shelves.forEach((shelf) => {
-          const section = el.querySelector(`[data-shelf="${shelf.id}"]`);
-          fillShelf(section, shelf).then((items) => {
-            if (heroSet || !items.length) return;
+        const loads = shelves.map((shelf) => fillShelf(el.querySelector(`[data-shelf="${shelf.id}"]`), shelf));
+        // Feature the first row (newest movies) that has anything in it.
+        (async () => {
+          for (let i = 0; i < loads.length; i++) {
+            const items = await loads[i];
+            if (!items.length || !el.isConnected) continue;
             heroSet = true;
-            heroShelf = shelf;
-            heroItems = items.filter((i) => i.description).slice(0, 4);
+            heroShelf = shelves[i];
+            heroItems = items.filter((x) => x.description).slice(0, 4);
             if (!heroItems.length) heroItems = items.slice(0, 4);
             showHero();
-            rotate = setInterval(() => { heroAt = (heroAt + 1) % heroItems.length; showHero(); }, 9000);
-          });
-        });
-        Promise.allSettled(shelves.map((s) => Catalog.shelf(s))).then(() => {
+            rotate = setInterval(() => { heroAt = (heroAt + 1) % heroItems.length; showHero(); }, previewsOn() ? 25000 : 9000);
+            return;
+          }
+        })();
+        Promise.allSettled(loads).then(() => {
           if (!heroSet && el.isConnected) {
             el.querySelector("#hero-title").textContent = "Can't load movies right now";
             el.querySelector("#hero-desc").textContent = "Check your internet connection. Games and trivia still work.";
           }
         });
       },
-      destroy() { clearInterval(rotate); },
+      destroy() { clearInterval(rotate); stopPreview(); },
     };
   }
 
@@ -340,8 +545,9 @@ const App = (() => {
   }
 
   // ----- input routing -----
-  Input.on((action) => {
-    if (current && current.onAction && current.onAction(action)) return true;
+  Input.on((action, ev) => {
+    if (current && current.onAction && current.onAction(action, ev)) return true;
+    if (action === "digit") return false;
     if (["up", "down", "left", "right"].includes(action)) {
       const a = document.activeElement;
       if (a && a.tagName === "INPUT" && (action === "left" || action === "right")) return false;

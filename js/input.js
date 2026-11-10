@@ -20,6 +20,7 @@ const Input = (() => {
     Escape: "back", Backspace: "back", BrowserBack: "back", GoBack: "back",
     "1": "a", "2": "b", "3": "x", "4": "y",
     m: "menu", M: "menu", ContextMenu: "menu",
+    "5": "digit", "6": "digit", "7": "digit", "8": "digit", "9": "digit", "0": "digit",
   };
 
   window.addEventListener("keydown", (e) => {

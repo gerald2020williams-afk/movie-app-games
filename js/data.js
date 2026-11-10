@@ -1,11 +1,24 @@
 // Static data: age profiles, movie shelves, games, and trivia questions.
 
-const PROFILES = [
-  { id: "little", name: "Little Kids", ages: "Ages 0–6", level: 0, letter: "L", color: "#f0cf7a" },
-  { id: "kids", name: "Kids", ages: "Ages 7–12", level: 1, letter: "K", color: "#d4a64a" },
-  { id: "teens", name: "Teens", ages: "Ages 13–17", level: 2, letter: "T", color: "#c98f3a" },
-  { id: "adults", name: "Adults", ages: "18 and up", level: 3, letter: "A", color: "#b07a2c" },
+// Age groups. Each family profile belongs to one; it decides which movie rows show.
+const AGE_GROUPS = [
+  { level: 0, name: "Little Kids", ages: "Ages 0–6" },
+  { level: 1, name: "Kids", ages: "Ages 7–12" },
+  { level: 2, name: "Teens", ages: "Ages 13–17" },
+  { level: 3, name: "Adults", ages: "18 and up" },
 ];
+
+// Colors a profile picture can use when there's no photo.
+const PROFILE_COLORS = ["#f0cf7a", "#d4a64a", "#e2574c", "#4cc27a", "#4f8fe8", "#a77bf3", "#f28ab2", "#3cc8c0"];
+
+// Starting profiles on a new device. Families rename, add and remove them.
+const DEFAULT_PROFILES = [
+  { id: "little", name: "Little Kids", level: 0, color: "#f0cf7a", locked: false },
+  { id: "kids", name: "Kids", level: 1, color: "#d4a64a", locked: false },
+  { id: "teens", name: "Teens", level: 2, color: "#4f8fe8", locked: true },
+  { id: "adults", name: "Adults", level: 3, color: "#e2574c", locked: true },
+];
+const MAX_PROFILES = 8;
 
 // Age labels shown on posters. A shelf is visible to a profile when shelf.level <= profile.level.
 const AGE_LABELS = ["All ages", "Kids", "Teens", "Adults"];
@@ -27,8 +40,20 @@ const SHELVES = [
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(comedy) AND NOT subject:(horror OR crime)" },
   { id: "silent", title: "Silent Film Fun", level: 1,
     q: "collection:(silent_films) AND mediatype:(movies) AND subject:(comedy)" },
-  { id: "adventure", title: "Adventure & Sci-Fi", level: 2,
-    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(adventure OR \"science fiction\" OR sci-fi OR western)" },
+  { id: "holiday", title: "Holiday Favorites", level: 0,
+    q: "collection:(classic_cartoons OR animationandcartoons OR feature_films) AND mediatype:(movies) AND subject:(christmas OR holiday OR thanksgiving OR easter OR halloween) AND NOT subject:(horror OR crime OR noir)" },
+  { id: "nature", title: "Nature & Animals", level: 0,
+    q: "collection:(prelinger OR feature_films OR ephemera) AND mediatype:(movies) AND subject:(animals OR wildlife OR nature OR zoo OR birds OR ocean) AND NOT subject:(hunting OR war OR horror)" },
+  { id: "musicals", title: "Musicals", level: 1,
+    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(musical OR musicals) AND NOT subject:(horror OR crime)" },
+  { id: "westerns", title: "Westerns", level: 1,
+    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(western OR westerns OR cowboy)" },
+  { id: "documentaries", title: "Documentaries", level: 1,
+    q: "collection:(feature_films OR prelinger OR documentaryandshortfilms) AND mediatype:(movies) AND subject:(documentary OR documentaries) AND NOT subject:(war OR propaganda OR crime)" },
+  { id: "adventure", title: "Adventure", level: 2,
+    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(adventure OR action) AND NOT subject:(horror)" },
+  { id: "scifi", title: "Sci-Fi", level: 2,
+    q: "collection:(feature_films OR scifi_horror) AND mediatype:(movies) AND subject:(\"science fiction\" OR sci-fi OR scifi OR space) AND NOT subject:(horror)" },
   { id: "noir", title: "Film Noir & Mystery", level: 3,
     q: "collection:(film_noir) AND mediatype:(movies)" },
   { id: "horror", title: "Horror Classics", level: 3,
