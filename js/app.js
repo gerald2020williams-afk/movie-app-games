@@ -78,7 +78,7 @@ const App = (() => {
 
   function cardHtml(item, shelf) {
     return `<button class="f card" data-id="${escapeHtml(item.id)}">
-      <span class="thumb" style="background-image:url('${Catalog.image(item.id)}')"><span class="rating">${AGE_LABELS[shelf.level]}</span></span>
+      <span class="thumb" style="background-image:url('${Catalog.image(item.id)}')"></span>
       <span class="t">${escapeHtml(item.title)}</span>
       <span class="y">${escapeHtml(item.year || "")}</span>
     </button>`;
@@ -105,7 +105,7 @@ const App = (() => {
   }
 
   function shelfSection(shelf) {
-    return `<section class="shelf" data-shelf="${shelf.id}"><h2>${shelf.title} <small>${AGE_LABELS[shelf.level]}</small></h2><div class="row"></div></section>`;
+    return `<section class="shelf" data-shelf="${shelf.id}"><h2>${shelf.title}</h2><div class="row"></div></section>`;
   }
 
   function railHtml() {
@@ -223,7 +223,7 @@ const App = (() => {
           <h1>Manage profiles</h1>
           <p class="sub">Pick a profile to change its name, picture or age group.</p>
           <div class="manage-list">
-            ${list.map((p) => `<button class="f manage-row" data-id="${p.id}">${Profiles.avatar(p)}<span><b>${escapeHtml(p.name)}</b><small>${p.group} · ${p.ages}${p.locked ? " · Needs parent PIN" : ""}</small></span><span class="go">Edit</span></button>`).join("")}
+            ${list.map((p) => `<button class="f manage-row" data-id="${p.id}">${Profiles.avatar(p)}<span><b>${escapeHtml(p.name)}</b><small>${p.group}${p.locked ? " · Needs parent PIN" : ""}</small></span><span class="go">Edit</span></button>`).join("")}
           </div>
           <div class="btns">
             ${list.length < MAX_PROFILES ? `<button class="f btn gold" id="add">+ Add profile</button>` : ""}
@@ -259,7 +259,7 @@ const App = (() => {
             </div>
             <div class="edit-fields">
               <label class="field"><span>Name</span><input class="f" id="name" maxlength="20" value="${escapeHtml(p.name)}" placeholder="Name" autocomplete="off"></label>
-              <div class="field"><span>Age group</span><div class="chips">${AGE_GROUPS.map((g) => `<button class="f chip-btn${g.level === p.level ? " on" : ""}" data-level="${g.level}">${g.name}<small>${g.ages}</small></button>`).join("")}</div></div>
+              <div class="field"><span>Age group</span><div class="chips">${AGE_GROUPS.map((g) => `<button class="f chip-btn${g.level === p.level ? " on" : ""}" data-level="${g.level}">${g.name}</button>`).join("")}</div></div>
               <div class="field"><span>Color</span><div class="chips">${PROFILE_COLORS.map((c) => `<button class="f swatch${c === p.color ? " on" : ""}" data-color="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join("")}</div></div>
               <div class="field"><span>Parent PIN</span><button class="f chip-btn toggle${p.locked ? " on" : ""}" id="locked">${p.locked ? "Needs parent PIN to open" : "Opens without a PIN"}</button></div>
               <div class="btns">
@@ -360,7 +360,7 @@ const App = (() => {
           el.querySelector("#hero-bg").style.backgroundImage = `url('${Catalog.image(it.id)}')`;
           el.querySelector("#hero-art").style.backgroundImage = `url('${Catalog.image(it.id)}')`;
           el.querySelector("#hero-title").textContent = it.title;
-          el.querySelector("#hero-meta").innerHTML = `<span class="rating">${AGE_LABELS[heroShelf.level]}</span> ${escapeHtml([heroShelf.title, it.year, it.runtime].filter(Boolean).join(" · "))}`;
+          el.querySelector("#hero-meta").innerHTML = escapeHtml([heroShelf.title, it.year, it.runtime].filter(Boolean).join(" · "));
           el.querySelector("#hero-desc").textContent = it.description || "A free classic from the Internet Archive.";
           el.querySelector("#hero-dots").innerHTML = heroItems.map((_, i) => `<i class="${i === heroAt ? "on" : ""}"></i>`).join("");
           startPreview(it);
@@ -421,7 +421,7 @@ const App = (() => {
       tab: "movies",
       render(el) {
         const shelves = shelvesFor(profile.level);
-        el.innerHTML = `<section class="page"><h1>Movies</h1><p class="sub">Free classic movies and cartoons for ${escapeHtml(profile.name)} (${escapeHtml(profile.ages)}).</p>
+        el.innerHTML = `<section class="page"><h1>Movies</h1><p class="sub">Free movies and cartoons for ${escapeHtml(profile.name)}.</p>
           ${shelves.map(shelfSection).join("")}</section>`;
         let focused = false;
         shelves.forEach((s) => fillShelf(el.querySelector(`[data-shelf="${s.id}"]`), s).then(() => {
@@ -481,7 +481,7 @@ const App = (() => {
           <span class="thumb" style="background-image:url('${Catalog.image(item.id)}')"></span>
           <div>
             <h1>${escapeHtml(item.title)}</h1>
-            <div class="meta"><span class="rating">${AGE_LABELS[shelf.level]}</span>${escapeHtml([item.year, item.runtime].filter(Boolean).join(" · "))}</div>
+            <div class="meta">${escapeHtml([item.year, item.runtime].filter(Boolean).join(" · "))}</div>
             <p>${escapeHtml(item.description || "A free classic from the Internet Archive.")}</p>
             <div class="btns"><button class="f btn gold" id="play">▶ Play</button><button class="f btn" id="back">Back</button></div>
           </div></section>`;

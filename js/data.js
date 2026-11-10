@@ -20,8 +20,7 @@ const DEFAULT_PROFILES = [
 ];
 const MAX_PROFILES = 8;
 
-// Age labels shown on posters. A shelf is visible to a profile when shelf.level <= profile.level.
-const AGE_LABELS = ["All ages", "Kids", "Teens", "Adults"];
+// A shelf is visible to a profile when shelf.level <= profile.level.
 
 // Movie shelves pulled live from the Internet Archive (free, legal, public domain films).
 // `q` is an Internet Archive search query.
@@ -61,9 +60,9 @@ const SHELVES = [
 ];
 
 const GAMES = [
-  { id: "movie-trivia", name: "Movie Trivia", sub: "Questions · all ages", icon: "?", bg: "linear-gradient(135deg,#6366f1,#1e1b4b)", type: "trivia", bank: "movies" },
-  { id: "animal-quiz", name: "Animal Quiz", sub: "Questions · kids", icon: "?", bg: "linear-gradient(135deg,#f59e0b,#78350f)", type: "trivia", bank: "animals" },
-  { id: "world-quiz", name: "World Quiz", sub: "Questions · 7 and up", icon: "?", bg: "linear-gradient(135deg,#14b8a6,#134e4a)", type: "trivia", bank: "world" },
+  { id: "movie-trivia", name: "Movie Trivia", sub: "Movie questions", icon: "?", bg: "linear-gradient(135deg,#6366f1,#1e1b4b)", type: "trivia", bank: "movies" },
+  { id: "animal-quiz", name: "Animal Quiz", sub: "Animal questions", icon: "?", bg: "linear-gradient(135deg,#f59e0b,#78350f)", type: "trivia", bank: "animals" },
+  { id: "world-quiz", name: "World Quiz", sub: "World and science questions", icon: "?", bg: "linear-gradient(135deg,#14b8a6,#134e4a)", type: "trivia", bank: "world" },
   { id: "space-dodge", name: "Space Dodge", sub: "Arcade · 1 player", icon: "S", bg: "linear-gradient(135deg,#0ea5e9,#0c4a6e)", type: "space" },
 ];
 
