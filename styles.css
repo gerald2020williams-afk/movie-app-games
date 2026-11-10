@@ -316,6 +316,18 @@ body.remote-mode .nav { display: none; }
 .log-row.compact { grid-template-columns: minmax(0, 1fr) auto; }
 .pair-form { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; }
 
+/* ---------- Title cards: movies with no real picture ---------- */
+.titlecard { display: grid; place-content: center; text-align: center; gap: .3rem; padding: .8rem;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--gold) 16%, var(--panel-2)), var(--panel) 70%) !important;
+  border: .08rem solid color-mix(in srgb, var(--gold) 35%, var(--line)); }
+.titlecard b { font-family: var(--display); font-weight: 800; color: var(--gold-light); font-size: 1rem; line-height: 1.1; text-wrap: balance;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.titlecard small { color: var(--dim); font-size: .75rem; letter-spacing: .12em; }
+.titlecard::before { content: ""; width: 2.2rem; height: .12rem; background: var(--gold); justify-self: center; margin-bottom: .2rem; }
+.hero-art.titlecard b, .mp-art.titlecard b { font-size: 2rem; }
+.hero-art.titlecard small, .mp-art.titlecard small { font-size: 1rem; }
+.mp-art.titlecard video:not([hidden]) { position: absolute; inset: 0; }
+
 /* ---------- Live Channels ---------- */
 .channels { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: 1rem; }
 .channel { display: grid; gap: .45rem; text-align: left; padding: 1.1rem 1.2rem; border-radius: 1rem; background: var(--panel); border: .08rem solid var(--line); min-width: 0; }

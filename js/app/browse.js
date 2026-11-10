@@ -36,12 +36,15 @@ function HomeView() {
       const showHero = () => {
         const it = heroItems[heroAt];
         if (!it) return;
-        const img = Catalog.image(it.id);
-        el.querySelector("#hero-bg").style.backgroundImage = `url('${img}')`;
-        el.querySelector("#hero-art").style.backgroundImage = `url('${img}')`;
-        Catalog.info(it.id).then((info) => {
+        const art = Catalog.art(it.id);
+        const heroArt = el.querySelector("#hero-art");
+        heroArt.classList.toggle("titlecard", !!art.card);
+        heroArt.innerHTML = art.card ? `<b>${escapeHtml(it.title)}</b>${it.year ? `<small>${escapeHtml(it.year)}</small>` : ""}` : "";
+        heroArt.style.backgroundImage = art.card ? "" : `url('${art.url}')`;
+        el.querySelector("#hero-bg").style.backgroundImage = art.card ? "" : `url('${art.url}')`;
+        if (art.upgrade) Catalog.info(it.id).then((info) => {
           if (!info.image || heroItems[heroAt] !== it) return;
-          sharpen(el.querySelector("#hero-art"), info.image);
+          sharpen(heroArt, info.image);
           sharpen(el.querySelector("#hero-bg"), info.image);
         }).catch(() => {});
         const prog = History.get(profile.id, it.id);
@@ -220,11 +223,13 @@ function DetailView(item, list = []) {
       const shelf = SHELVES.find((x) => x.id === item.shelf);
       const others = allowed(list).filter((x) => x.id !== item.id).slice(0, 18);
       const rating = Library.rating(profile.id, item.id);
+      const art = Catalog.art(item.id);
+      const bg = art.card ? "" : `background-image:url('${art.url}')`;
       el.innerHTML = `<section class="movie-page">
         <div class="mp-hero">
-          <div class="mp-bg" id="mp-bg" style="background-image:url('${Catalog.image(item.id)}')"></div>
+          <div class="mp-bg" id="mp-bg" style="${bg}"></div>
           <div class="mp-shade"></div>
-          <div class="mp-art" id="mp-art" style="background-image:url('${Catalog.image(item.id)}')"><video id="mp-preview" muted playsinline loop hidden></video></div>
+          <div class="mp-art${art.card ? " titlecard" : ""}" id="mp-art" style="${bg}">${art.card ? `<b>${escapeHtml(item.title)}</b>${item.year ? `<small>${escapeHtml(item.year)}</small>` : ""}` : ""}<video id="mp-preview" muted playsinline loop hidden></video></div>
           <div class="mp-copy">
             ${shelf ? `<span class="tag">${escapeHtml(shelf.title)}</span>` : ""}
             <h1>${escapeHtml(item.title)}</h1>

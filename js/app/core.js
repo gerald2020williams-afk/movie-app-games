@@ -88,11 +88,18 @@ function shelvesFor(level) {
     .map((x) => x.s);
 }
 
+// A movie's picture: its poster, or a gold-and-black title card when it has no real picture.
+function thumbHtml(item, inner = "", extraClass = "") {
+  const art = Catalog.art(item.id);
+  if (art.card) return `<span class="thumb titlecard ${extraClass}"><b>${escapeHtml(item.title)}</b>${item.year ? `<small>${escapeHtml(item.year)}</small>` : ""}${inner}</span>`;
+  return `<span class="thumb ${extraClass}"${art.upgrade ? " data-upgrade" : ""} style="background-image:url('${art.url}')">${inner}</span>`;
+}
+
 function cardHtml(item, progress, rank) {
   const pct = progress ? Math.min(100, Math.round((progress.pos / progress.dur) * 100)) : 0;
   const label = [rank ? `Number ${rank}` : "", item.title, item.year, progress ? `${formatTime(progress.dur - progress.pos)} left` : ""].filter(Boolean).join(", ");
   return `<button class="f card${rank ? " ranked" : ""}" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}">${rank ? `<span class="rank" aria-hidden="true">${rank}</span>` : ""}
-    <span class="thumb" style="background-image:url('${Catalog.image(item.id)}')">${pct ? `<span class="progress"><i style="width:${pct}%"></i></span>` : ""}</span>
+    ${thumbHtml(item, pct ? `<span class="progress"><i style="width:${pct}%"></i></span>` : "")}
     <span class="t">${escapeHtml(item.title)}</span>
     <span class="y">${progress ? `${formatTime(progress.dur - progress.pos)} left` : escapeHtml(item.year || "")}</span>
   </button>`;
@@ -111,7 +118,8 @@ const upgrader = "IntersectionObserver" in window ? new IntersectionObserver((en
     Catalog.info(card.dataset.id, { wanted: () => card.isConnected }).then((info) => {
       if (!card.isConnected) return;
       if (info.broken) return hideCard(card);
-      if (info.image) sharpen(card.querySelector(".thumb"), info.image);
+      const thumb = card.querySelector(".thumb[data-upgrade]");
+      if (info.image && thumb) sharpen(thumb, info.image);
     }).catch(() => {});
   }
 }, { rootMargin: "200px 400px" }) : null;
@@ -132,7 +140,8 @@ function hideCard(card) {
 
 function watchCards(container) {
   if (!upgrader) return;
-  container.querySelectorAll(".card[data-id]").forEach((c) => upgrader.observe(c));
+  // Only cards still showing the Archive's small preview need a sharper picture looked up.
+  container.querySelectorAll(".card[data-id]").forEach((c) => { if (c.querySelector(".thumb[data-upgrade]")) upgrader.observe(c); });
 }
 
 // Wire a list of movie cards: choosing one opens its page (or resumes, for Continue Watching).

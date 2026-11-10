@@ -117,7 +117,7 @@ function PlayerView(item, list = [], { resume = true } = {}) {
           <button class="f btn" id="cast" hidden>Cast to TV</button>
           <button class="f btn" id="full">⛶ Full screen</button></div>
         <div class="screen-wrap" id="wrap">
-          <video class="f" id="video" controls playsinline x-webkit-airplay="allow" preload="auto" poster="${Catalog.image(item.id)}"></video>
+          <video class="f" id="video" controls playsinline x-webkit-airplay="allow" preload="auto" poster="${Catalog.art(item.id).url || ""}"></video>
           <div class="loading" id="loading">Loading movie…</div>
           <div class="casting" id="casting" hidden></div>
           <div class="data-ask" id="data-ask" hidden></div>

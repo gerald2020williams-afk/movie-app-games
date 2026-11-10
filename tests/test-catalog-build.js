@@ -5,12 +5,12 @@ const path = require("path");
 const mock = require("./mock-archive");
 (async () => {
   const port = await mock.start();
-  const file = path.resolve(__dirname, "..", "catalog.json");
-  const backup = fs.existsSync(file) ? fs.readFileSync(file) : null;
+  const tmp = fs.mkdtempSync(path.join(require("os").tmpdir(), "catalog-"));
+  const file = path.join(tmp, "catalog.json");
   try {
     // Run the builder as a separate process without blocking, so the stand-in server can answer it.
     const log = await new Promise((resolve, reject) => execFile(process.execPath, [path.resolve(__dirname, "..", "scripts", "build-catalog.js")],
-      { env: { ...process.env, ARCHIVE: `http://127.0.0.1:${port}` }, encoding: "utf8", timeout: 240000 }, (err, stdout, stderr) => (err ? reject(new Error(stderr || err.message)) : resolve(stdout))));
+      { env: { ...process.env, ARCHIVE: `http://127.0.0.1:${port}`, OUTDIR: tmp }, encoding: "utf8", timeout: 240000 }, (err, stdout, stderr) => (err ? reject(new Error(stderr || err.message)) : resolve(stdout))));
     console.log(log.trim().split("\n").slice(-1)[0]);
     const cat = JSON.parse(fs.readFileSync(file, "utf8"));
     const all = Object.values(cat.shelves).flat();
@@ -23,7 +23,7 @@ const mock = require("./mock-archive");
     console.log("no duplicates in a row:", Object.values(cat.shelves).every((r) => new Set(r.map((x) => x.title)).size === r.length));
     console.log("errors: []");
   } finally {
-    if (backup) fs.writeFileSync(file, backup); else fs.rmSync(file, { force: true });
+    fs.rmSync(tmp, { recursive: true, force: true });
     mock.stop();
   }
 })();

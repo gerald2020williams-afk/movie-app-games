@@ -1,5 +1,8 @@
 // A stand-in Internet Archive for testing the catalog builder (no real requests).
 const http = require("http");
+// Real JPEG pictures for poster tests, when the image tool is available.
+let jpeg = null;
+try { require("sharp")({ create: { width: 640, height: 480, channels: 3, background: "#7a3a1c" } }).jpeg().toBuffer().then((b) => (jpeg = b)); } catch (_) {}
 let calls = { search: 0, meta: 0 };
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://x");
@@ -18,8 +21,12 @@ const server = http.createServer((req, res) => {
     calls.meta++;
     const id = u.pathname.split("/")[2];
     const broken = id.endsWith("-7");
-    return res.end(JSON.stringify({ result: broken ? [] : [{ name: `${id}.mp4`, format: "h.264", length: "4200" }, { name: `${id}.jpg`, format: "JPEG", size: "50000" }, { name: `${id}.gif`, format: "Animated GIF", size: "900000" }] }));
+    const noPicture = /-(2|5|8)$/.test(id);
+    const files = [{ name: `${id}.mp4`, format: "h.264", length: "4200" }, { name: `${id}.gif`, format: "Animated GIF", size: "900000" }];
+    if (!noPicture) files.push({ name: `${id}.jpg`, format: "JPEG", size: "50000" });
+    return res.end(JSON.stringify({ result: broken ? [] : files }));
   }
+  if (u.pathname.startsWith("/download/") && /\.jpg$/.test(u.pathname) && jpeg) { res.setHeader("Content-Type", "image/jpeg"); return res.end(jpeg); }
   res.statusCode = 404; res.end("{}");
 });
 module.exports = { start: () => new Promise((r) => server.listen(0, () => r(server.address().port))), stop: () => server.close(), calls };

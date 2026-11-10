@@ -26,13 +26,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Build catalog.json from the Internet Archive
+      - name: Install the image tool for posters
+        run: npm install --no-save sharp@0.33.5
+      - name: Build catalog.json and posters from the Internet Archive
         run: node scripts/build-catalog.js
       - name: Save it to the site
         run: |
           git config user.name "catalog-bot"
           git config user.email "catalog-bot@users.noreply.github.com"
-          git add catalog.json
+          git add catalog.json posters
           if git diff --cached --quiet; then echo "No changes"; exit 0; fi
           git commit -m "Update movie catalog"
           git pull --rebase origin main

@@ -328,6 +328,15 @@ const Catalog = (() => {
       return search(`title:(${safe}) AND (${allowed})`, 36).then((items) => dedupe(items.filter((it) => passesRules(it))));
     },
     image(id) { return `https://archive.org/services/img/${encodeURIComponent(id)}`; },
+    // The picture to show for a movie: the site's own sharp poster, a gold title card when the
+    // movie has no real picture, or (not in the daily catalog yet) the Archive's preview to upgrade later.
+    art(id) {
+      const i = shared && shared.info && shared.info[id];
+      if (i && i.poster) return { url: i.poster };
+      if (i && i.image) return { url: i.image };
+      if (i && i.src) return { card: true };
+      return { url: this.image(id), upgrade: true };
+    },
     embed(id) { return `https://archive.org/embed/${encodeURIComponent(id)}?autoplay=1`; },
   };
 })();
