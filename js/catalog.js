@@ -92,17 +92,22 @@ const Catalog = (() => {
 
   // ----- per-movie details: playable video file and the best picture -----
   const FORMAT_RANK = ["h.264 HD", "h.264", "MPEG4", "h.264 IA", "512Kb MPEG4", "Ogg Video", "WebM"];
-  const IMAGE_FORMATS = ["JPEG", "PNG", "Animated GIF"];
+  // Still pictures only. Movies often include an animated GIF preview; it flashes, so it's never used.
+  const IMAGE_FORMATS = ["JPEG", "PNG"];
   const infoMemo = new Map();
   let infoCache = null;
   function infoStore() {
-    if (!infoCache) infoCache = load("ia-info") || {};
+    if (!infoCache) {
+      // Older saved details could point at animated pictures; start fresh once.
+      try { localStorage.removeItem("ia-info"); } catch (_) {}
+      infoCache = load("ia-info2") || {};
+    }
     return infoCache;
   }
   function saveInfoStore() {
     const entries = Object.entries(infoCache);
     if (entries.length > 800) infoCache = Object.fromEntries(entries.slice(-600));
-    store("ia-info", infoCache, INFO_TTL);
+    store("ia-info2", infoCache, INFO_TTL);
   }
   function isBroken(id) { const i = infoStore()[id]; return !!(i && i.broken); }
 
@@ -134,7 +139,7 @@ const Catalog = (() => {
       // Smaller file for data saver (phones on cell data, slow connections).
       const small = files.find((f) => f.format === "512Kb MPEG4") || files.filter((f) => /\.mp4$/i.test(f.name) && f.size).sort((a, b) => a.size - b.size)[0];
 
-      const images = files.filter((f) => IMAGE_FORMATS.includes(f.format) && !/\.thumbs\/|__ia_thumb|_thumb\./i.test(f.name))
+      const images = files.filter((f) => IMAGE_FORMATS.includes(f.format) && /\.(jpe?g|png)$/i.test(f.name) && !/\.thumbs\/|__ia_thumb|_thumb\./i.test(f.name))
         .sort((a, b) => Number(b.size || 0) - Number(a.size || 0));
       const result = video
         ? { src: link(video.name), small: small && small.name !== video.name ? link(small.name) : "", image: images[0] ? link(images[0].name) : "" }

@@ -1,6 +1,6 @@
 // Offline support: keep a copy of the app's own files so it opens even with a weak connection.
 // Movies, pictures and movie lists come from the Internet Archive and are not stored here.
-const CACHE = "movies-app-v2";
+const CACHE = "movies-app-v3";
 const FILES = [
   "./", "index.html", "styles.css", "manifest.webmanifest", "icon.svg",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-180.png",
