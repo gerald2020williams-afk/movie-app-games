@@ -2,7 +2,7 @@
 
 const Catalog = (() => {
   const API = "https://archive.org/advancedsearch.php";
-  const FIELDS = ["identifier", "title", "year", "description", "runtime", "creator", "licenseurl", "downloads", "week"];
+  const FIELDS = ["identifier", "title", "year", "description", "runtime", "creator", "licenseurl", "downloads", "week", "subject"];
   // Only ask for movies that have a video file the app can play.
   const PLAYABLE = ' AND format:("h.264" OR "h.264 HD" OR "h.264 IA" OR MPEG4 OR "512Kb MPEG4")';
   const SEARCH_TTL = 12 * 60 * 60 * 1000; // movie lists are kept for 12 hours
@@ -92,6 +92,7 @@ const Catalog = (() => {
         description: cleanText(Array.isArray(d.description) ? d.description.join(" ") : d.description || "").slice(0, 600),
         creator: d.creator ? String(first(d.creator)).slice(0, 80) : "",
         license: d.licenseurl ? String(first(d.licenseurl)) : "",
+        subjects: (Array.isArray(d.subject) ? d.subject.join("; ") : String(d.subject || "")).slice(0, 240),
         popular: Number(first(d.week)) || 0,
         downloads: Number(first(d.downloads)) || 0,
       }));
@@ -150,15 +151,15 @@ const Catalog = (() => {
   function infoStore() {
     if (!infoCache) {
       // Older saved details could point at animated pictures; start fresh once.
-      try { localStorage.removeItem("ia-info"); localStorage.removeItem("ia-info2"); } catch (_) {}
-      infoCache = load("ia-info3") || {};
+      try { localStorage.removeItem("ia-info"); localStorage.removeItem("ia-info2"); localStorage.removeItem("ia-info3"); } catch (_) {}
+      infoCache = load("ia-info4") || {};
     }
     return infoCache;
   }
   function saveInfoStore() {
     const entries = Object.entries(infoCache);
     if (entries.length > 800) infoCache = Object.fromEntries(entries.slice(-600));
-    store("ia-info3", infoCache, INFO_TTL);
+    store("ia-info4", infoCache, INFO_TTL);
   }
   function isBroken(id) { const i = infoStore()[id]; return !!(i && i.broken); }
 
@@ -195,7 +196,7 @@ const Catalog = (() => {
       // Smaller file for data saver (phones on cell data, slow connections).
       const small = files.find((f) => f.format === "512Kb MPEG4") || files.filter((f) => /\.mp4$/i.test(f.name) && f.size).sort((a, b) => a.size - b.size)[0];
 
-      const images = files.filter((f) => IMAGE_FORMATS.includes(f.format) && /\.(jpe?g|png)$/i.test(f.name) && !/\.thumbs\/|__ia_thumb|_thumb\./i.test(f.name))
+      const images = files.filter((f) => IMAGE_FORMATS.includes(f.format) && /\.(jpe?g|png)$/i.test(f.name) && !/\.thumbs\/|__ia_thumb|_thumb\.|spectrogram|waveform|_spec\.|\.spec\./i.test(f.name))
         .sort((a, b) => Number(b.size || 0) - Number(a.size || 0));
       // Subtitle files (.srt or .vtt), with a language guessed from the file name.
       const LANGS = { en: "English", eng: "English", english: "English", es: "Spanish", spa: "Spanish", spanish: "Spanish", fr: "French", fre: "French", french: "French", de: "German", ger: "German", german: "German", it: "Italian", pt: "Portuguese" };
@@ -248,15 +249,19 @@ const Catalog = (() => {
     m = /^(\d+(\.\d+)?)$/.exec(r);
     return m ? +m[1] : null;
   }
+  const isAdult = (it) => ADULT_CONTENT.test(`${it.title} ${it.description || ""} ${it.subjects || ""}`);
   const isOpenLicense = (url) => /creativecommons\.org|publicdomain/i.test(url || "");
 
   // Copyright and quality rules every list goes through.
   function passesRules(it, shelf = {}) {
     if (isBroken(it.id) || isBlocked(it)) return false;
     if (JUNK_TITLE.test(it.title)) return false;
+    // Rows for younger profiles never include adult content.
+    if (shelf.level !== undefined && shelf.level < 3 && isAdult(it)) return false;
     // Copyright: newer films need an open license, unless the row is a known open-movie row.
     const year = Number(it.year) || 0;
-    if (!shelf.licensed && year > COPYRIGHT_CUTOFF_YEAR && !isOpenLicense(it.license)) return false;
+    if (!shelf.licensed && year > COPYRIGHT_CUTOFF_YEAR && !isOpenLicense(it.license) && !PUBLIC_DOMAIN_EXCEPTIONS.test(it.title)) return false;
+    if (shelf.level !== undefined && shelf.level <= 1 && !shelf.licensed && year > KIDS_LATEST_YEAR && !isOpenLicense(it.license)) return false;
     const mins = minutes(it.runtime);
     if (mins !== null && mins < Math.max(MIN_MINUTES, shelf.minMinutes || 0)) return false;
     return true;
@@ -298,7 +303,7 @@ const Catalog = (() => {
       const varied = kept.filter((it) => !inCollections.has(it.id));
       return (varied.length >= 8 ? varied : kept).slice(0, 24);
     },
-    passesRules, minutes, blocklistReady, catalogReady, cleanTitle, dedupe,
+    passesRules, minutes, isAdult, isOpenLicense, blocklistReady, catalogReady, cleanTitle, dedupe,
     usingSharedCatalog: () => !!shared,
     // Search titles within the shelves the profile is allowed to see.
     // Most-watched movies this week among the rows this profile can see.

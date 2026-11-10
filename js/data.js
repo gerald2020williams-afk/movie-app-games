@@ -25,7 +25,11 @@ const DEFAULT_PROFILES = [
 const MAX_PROFILES = 8;
 
 // Rows for younger profiles leave out movies the Internet Archive tags as propaganda or racist.
-const KID_SAFE = ' AND NOT subject:(propaganda OR racist OR racism OR "racial stereotypes" OR stereotypes OR blackface OR minstrel OR "censored eleven" OR "world war ii")';
+const KID_SAFE = ' AND NOT subject:(propaganda OR racist OR racism OR "racial stereotypes" OR stereotypes OR blackface OR minstrel OR "censored eleven" OR "world war ii" OR horror OR thriller OR slasher OR murder OR crime OR exploitation OR sexploitation OR nudity OR nude OR erotic OR "adults only" OR drugs)';
+
+// Adult content: never shown to Little Kids, Kids or Teens, whatever row it turns up in.
+// Checked against each movie's title, description and Internet Archive topic tags.
+const ADULT_CONTENT = /\b(naked|nude|nudes|nudity|nudist|nudie|topless|sex|sexy|sexual|sexploitation|erotic|erotica|stripper|striptease|burlesque queen|x-rated|adults? only|softcore|exploitation|seduc\w*|prostitut\w*|brothel|incest|rape|raped|slasher|gore|gory|massacre|serial killer|cannibal\w*|satanic|occult|marijuana|reefer|cocaine|heroin|lsd)\b/i;
 
 // A shelf is visible to a profile when shelf.level <= profile.level.
 // Search for an exact list of titles within trusted collections.
@@ -37,9 +41,16 @@ function titles(list, collections) {
 // Only these Internet Archive collections are used: they're curated libraries of public-domain
 // films, classic cartoons and films their owners shared. Open user uploads are never searched.
 const TRUSTED_COLLECTIONS = ["feature_films", "classic_cartoons", "animationandcartoons", "silent_films", "film_noir", "prelinger", "ephemera", "documentaryandshortfilms", "scifi_horror"];
-// Films made after this year are only shown if they carry an open license (like Creative Commons).
-// Older films in the collections above are public domain or were never renewed.
-const COPYRIGHT_CUTOFF_YEAR = 1977;
+// Films made after this year are only shown if they carry an open license (like Creative Commons)
+// or are on the list of known public-domain films below. US films from 1964 onward kept their
+// copyright automatically, so 1963 is the safe cutoff; earlier films here were never renewed.
+const COPYRIGHT_CUTOFF_YEAR = 1963;
+// Later films that are well known to be in the public domain (for example, released without a
+// copyright notice). Add titles here only when that's clearly documented.
+const PUBLIC_DOMAIN_EXCEPTIONS = /^(night of the living dead|santa claus conquers the martians|manos:? the hands of fate|the terror|dementia 13|carnival of souls|the little shop of horrors|plan 9 from outer space|charade|mclintock!?)\b/i;
+// Kids' rows (Little Kids and Kids) only show films from before this year, unless openly licensed:
+// later films are much more likely to have mature content.
+const KIDS_LATEST_YEAR = 1969;
 
 // ----- Quality rules -----
 // Titles with these words are usually clips, trailers or test uploads, not full movies.

@@ -162,7 +162,9 @@ function allowed(items) {
   const disliked = Library.disliked(profile.id);
   const hidden = new Set(Library.hidden().map((x) => x.id));
   const safe = Safety.filterOn(profile);
-  return items.filter((it) => !Catalog.isBroken(it.id) && !hidden.has(it.id) && !disliked.has(it.id) && !(safe && Safety.isUnsafe(it)));
+  const grownUp = profile.level >= 3;
+  const tooNewForKids = (it) => profile.level <= 1 && Number(it.year) > KIDS_LATEST_YEAR && !Catalog.isOpenLicense(it.license) && !/^(new-family|new-teens)$/.test(it.shelf || "");
+  return items.filter((it) => !Catalog.isBroken(it.id) && !hidden.has(it.id) && !disliked.has(it.id) && !(safe && Safety.isUnsafe(it)) && (grownUp || !Catalog.isAdult(it)) && !tooNewForKids(it));
 }
 
 // Renders a shelf row and wires its cards. Returns a promise of the items.
