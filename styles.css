@@ -316,6 +316,18 @@ body.remote-mode .nav { display: none; }
 .log-row.compact { grid-template-columns: minmax(0, 1fr) auto; }
 .pair-form { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; }
 
+/* ---------- Accessibility: text size, high contrast, subtitles ---------- */
+:root[data-text="l"] { font-size: clamp(16px, 1.32vw, 34px); }
+:root[data-text="xl"] { font-size: clamp(18px, 1.5vw, 38px); }
+.contrast { --dim: #e2d9c6; --line: #8a7e68; }
+.contrast .hero-shade, .contrast .mp-shade { background: rgba(0,0,0,.82); }
+.contrast .hero-bg, .contrast .mp-bg { display: none; }
+.contrast .f:focus-visible, .contrast .f.is-focus { box-shadow: 0 0 0 .2rem #000, 0 0 0 .55rem #ffd76a; }
+.contrast .card .t, .contrast .tab { color: #fff; }
+.contrast .btn { border: .1rem solid #fff4; }
+video::cue { font-family: var(--body); font-size: 1.15em; line-height: 1.35; background: rgba(0,0,0,.78); color: #fff; }
+.btn.on[aria-pressed="true"] { background: var(--gold); color: var(--on-gold); }
+
 /* ---------- Speed mode (slower TVs and devices) ---------- */
 .lite .hero-bg, .lite .mp-bg { filter: none; opacity: .25; }
 .lite .hero-video { display: none; }
@@ -334,6 +346,8 @@ body.remote-mode .nav { display: none; }
 /* ---------- Phones and small screens ---------- */
 @media (max-width: 760px) {
   :root { font-size: 15px; }
+  :root[data-text="l"] { font-size: 17px; }
+  :root[data-text="xl"] { font-size: 19px; }
   body { overflow: auto; }
   .nav { flex-wrap: wrap; gap: .6rem 1rem; padding: .8rem 1rem; }
   .tabs { order: 3; width: 100%; overflow-x: auto; }

@@ -343,6 +343,11 @@ function SettingsView() {
           <small class="hint-text">Plays smaller video files. Uses about a quarter of the data, with a softer picture.</small></div>
         <div class="field"><span>On cell data</span><div class="chips">${opt("cellData", [["ask", "Ask me"], ["saver", "Use data saver"], ["full", "Full quality"]])}</div>
           <small class="hint-text">${Settings.canDetectCell ? "This device can tell when it's on cell data." : "This browser can't tell Wi-Fi from cell data, so use Data saver above when you're out."}</small></div>
+        <h2 class="section-title">Easier to see and read</h2>
+        <div class="field"><span>Text size</span><div class="chips">${opt("text", [["m", "Normal"], ["l", "Large"], ["xl", "Extra large"]])}</div></div>
+        <div class="field"><span>High contrast</span><div class="chips">${opt("contrast", [["off", "Off"], ["on", "On"]])}</div>
+          <small class="hint-text">Brighter text, stronger outlines and plain backgrounds behind words.</small></div>
+        <div class="field"><span>Subtitles</span><div class="chips">${opt("subs", [["off", "Off"], ["on", "On when available"]])}</div></div>
         <div class="btns"><button class="f btn" id="back">Back</button></div>
       </section>`;
       el.querySelectorAll("[data-set]").forEach((b) => b.addEventListener("click", () => {

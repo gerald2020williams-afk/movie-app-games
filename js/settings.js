@@ -1,7 +1,7 @@
 // Settings for this device only (not synced): TV speed mode and cell-data video quality.
 
 const Settings = (() => {
-  const DEFAULTS = { speed: "auto", cellData: "ask", saver: "off" };
+  const DEFAULTS = { speed: "auto", cellData: "ask", saver: "off", text: "m", contrast: "off", subs: "off" };
   const get = (k) => { try { return localStorage.getItem("set:" + k) || DEFAULTS[k]; } catch (_) { return DEFAULTS[k]; } };
   const set = (k, v) => { try { localStorage.setItem("set:" + k, v); } catch (_) {} apply(); };
 
@@ -24,6 +24,8 @@ const Settings = (() => {
   function apply() {
     document.documentElement.classList.toggle("lite", speedMode());
     document.documentElement.classList.toggle("tv", isTV);
+    document.documentElement.dataset.text = get("text");
+    document.documentElement.classList.toggle("contrast", get("contrast") === "on");
   }
 
   apply();

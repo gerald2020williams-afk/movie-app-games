@@ -41,7 +41,7 @@ function mount(v, focusSel = null) {
   if (current && current.destroy) current.destroy();
   current = v;
   document.getElementById("toast").classList.remove("show");
-  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.go === v.tab));
+  document.querySelectorAll(".tab").forEach((t) => { const on = t.dataset.go === v.tab; t.classList.toggle("on", on); if (on) t.setAttribute("aria-current", "page"); else t.removeAttribute("aria-current"); });
   // Stop watching posters from the screen we're leaving (prevents a slow memory build-up).
   if (upgrader) upgrader.disconnect();
   // Each screen gets its own fresh box. Late answers for a screen that's gone (pictures,
@@ -90,7 +90,8 @@ function shelvesFor(level) {
 
 function cardHtml(item, progress, rank) {
   const pct = progress ? Math.min(100, Math.round((progress.pos / progress.dur) * 100)) : 0;
-  return `<button class="f card${rank ? " ranked" : ""}" data-id="${escapeHtml(item.id)}">${rank ? `<span class="rank" aria-hidden="true">${rank}</span>` : ""}
+  const label = [rank ? `Number ${rank}` : "", item.title, item.year, progress ? `${formatTime(progress.dur - progress.pos)} left` : ""].filter(Boolean).join(", ");
+  return `<button class="f card${rank ? " ranked" : ""}" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}">${rank ? `<span class="rank" aria-hidden="true">${rank}</span>` : ""}
     <span class="thumb" style="background-image:url('${Catalog.image(item.id)}')">${pct ? `<span class="progress"><i style="width:${pct}%"></i></span>` : ""}</span>
     <span class="t">${escapeHtml(item.title)}</span>
     <span class="y">${progress ? `${formatTime(progress.dur - progress.pos)} left` : escapeHtml(item.year || "")}</span>

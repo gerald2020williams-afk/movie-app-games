@@ -135,15 +135,15 @@ const Catalog = (() => {
   function infoStore() {
     if (!infoCache) {
       // Older saved details could point at animated pictures; start fresh once.
-      try { localStorage.removeItem("ia-info"); } catch (_) {}
-      infoCache = load("ia-info2") || {};
+      try { localStorage.removeItem("ia-info"); localStorage.removeItem("ia-info2"); } catch (_) {}
+      infoCache = load("ia-info3") || {};
     }
     return infoCache;
   }
   function saveInfoStore() {
     const entries = Object.entries(infoCache);
     if (entries.length > 800) infoCache = Object.fromEntries(entries.slice(-600));
-    store("ia-info2", infoCache, INFO_TTL);
+    store("ia-info3", infoCache, INFO_TTL);
   }
   function isBroken(id) { const i = infoStore()[id]; return !!(i && i.broken); }
 
@@ -181,8 +181,15 @@ const Catalog = (() => {
 
       const images = files.filter((f) => IMAGE_FORMATS.includes(f.format) && /\.(jpe?g|png)$/i.test(f.name) && !/\.thumbs\/|__ia_thumb|_thumb\./i.test(f.name))
         .sort((a, b) => Number(b.size || 0) - Number(a.size || 0));
+      // Subtitle files (.srt or .vtt), with a language guessed from the file name.
+      const LANGS = { en: "English", eng: "English", english: "English", es: "Spanish", spa: "Spanish", spanish: "Spanish", fr: "French", fre: "French", french: "French", de: "German", ger: "German", german: "German", it: "Italian", pt: "Portuguese" };
+      const subs = files.filter((f) => /\.(srt|vtt)$/i.test(f.name)).slice(0, 6).map((f) => {
+        const word = (f.name.toLowerCase().match(/[._\-\s](en|eng|english|es|spa|spanish|fr|fre|french|de|ger|german|it|pt)[._\-\s]/) || [])[1];
+        return { url: link(f.name), label: LANGS[word] || "Subtitles", lang: word ? word.slice(0, 2) : "" };
+      });
+      const length = video && Number(video.length) ? Math.round(Number(video.length)) : 0;
       const result = video
-        ? { src: link(video.name), small: small && small.name !== video.name ? link(small.name) : "", image: images[0] ? link(images[0].name) : "" }
+        ? { src: link(video.name), small: small && small.name !== video.name ? link(small.name) : "", image: images[0] ? link(images[0].name) : "", subs, length }
         : { broken: true };
       infoStore()[id] = result;
       saveInfoStore();

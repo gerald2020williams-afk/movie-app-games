@@ -19,8 +19,8 @@
 </head>
 <body>
   <header class="nav" id="nav">
-    <div class="logo" aria-hidden="true"></div>
-    <nav class="tabs">
+    <div class="logo" role="img" aria-label="Movies"></div>
+    <nav class="tabs" aria-label="Main">
       <button class="f tab" data-go="home">Home</button>
       <button class="f tab" data-go="movies">Movies</button>
       <button class="f tab" data-go="search">Search</button>
@@ -31,7 +31,7 @@
     <button class="f who" data-go="profiles">Watching as <b id="who-name">—</b><span class="avatar" id="who-avatar">?</span></button>
   </header>
 
-  <main id="view" tabindex="-1"></main>
+  <main id="view" tabindex="-1" aria-live="off"></main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 

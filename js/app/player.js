@@ -53,6 +53,36 @@ function PlayerView(item, list = [], { resume = true } = {}) {
     if (!("mediaSession" in navigator)) return;
     try { navigator.mediaSession.metadata = null; ["play", "pause", "seekbackward", "seekforward", "seekto", "nexttrack"].forEach((a) => navigator.mediaSession.setActionHandler(a, null)); } catch (_) {}
   }
+  // Subtitles: fetch the movie's subtitle file, turn SRT into the web format, and attach it.
+  async function loadSubtitles(video, info, btn) {
+    if (!info.subs || !info.subs.length) return;
+    const want = (navigator.language || "en").slice(0, 2);
+    const pick = info.subs.find((x) => x.lang === want) || info.subs.find((x) => x.lang === "en") || info.subs[0];
+    try {
+      const res = await fetch(pick.url);
+      if (!res.ok) return;
+      let text = await res.text();
+      if (!/^WEBVTT/.test(text.trim())) {
+        text = "WEBVTT\n\n" + text.replace(/\r/g, "").replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, "$1.$2").replace(/^\d+\n(?=\d{2}:)/gm, "");
+      }
+      if (!video.isConnected) return;
+      const track = document.createElement("track");
+      track.kind = "subtitles";
+      track.label = pick.label;
+      track.srclang = pick.lang || want;
+      track.src = URL.createObjectURL(new Blob([text], { type: "text/vtt" }));
+      video.appendChild(track);
+      const show = (on) => {
+        for (const t of video.textTracks) t.mode = on ? "showing" : "hidden";
+        btn.classList.toggle("on", on);
+        btn.setAttribute("aria-pressed", String(on));
+      };
+      track.addEventListener("load", () => show(Settings.get("subs") === "on"));
+      show(Settings.get("subs") === "on");
+      btn.hidden = false;
+      btn.onclick = () => { const on = Settings.get("subs") !== "on"; Settings.set("subs", on ? "on" : "off"); show(on); toast(on ? "Subtitles on" : "Subtitles off"); };
+    } catch (_) { /* no subtitles available for this movie */ }
+  }
   function fallback(wrap) {
     // Use the Internet Archive's own player if the file won't play here.
     if (!wrap.isConnected) return;
@@ -83,6 +113,7 @@ function PlayerView(item, list = [], { resume = true } = {}) {
     render(el) {
       el.innerHTML = `<section class="player">
         <div class="player-bar"><button class="f btn" id="back">← Back</button><h1>${escapeHtml(item.title)}</h1>
+          <button class="f btn" id="cc" hidden aria-pressed="false">CC Subtitles</button>
           <button class="f btn" id="cast" hidden>Cast to TV</button>
           <button class="f btn" id="full">⛶ Full screen</button></div>
         <div class="screen-wrap" id="wrap">
@@ -235,6 +266,7 @@ function PlayerView(item, list = [], { resume = true } = {}) {
           toast(`Resuming at ${formatTime(prog.pos)}`);
         }
         setupMediaSession(video, info);
+        loadSubtitles(video, info, el.querySelector("#cc"));
         video.play().catch(() => toast("Press OK or tap the movie to start"));
         SpatialNav.focus(video);
       }).catch(() => {
