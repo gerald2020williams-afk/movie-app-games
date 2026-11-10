@@ -19,7 +19,7 @@ jobs:
           node-version: 20
       - name: Install the test browser
         run: |
-          npm install --no-save playwright@1.47.2 esbuild@0.23.1
+          npm install --no-save playwright@1.47.2 esbuild@0.23.1 sharp@0.33.5
           npx playwright install --with-deps chromium
       - name: Check the bundled files are up to date
         run: |

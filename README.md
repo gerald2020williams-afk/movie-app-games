@@ -27,6 +27,9 @@ A TV-style app for the whole family: watch free classic movies and cartoons, pla
 - **Live Channels.** Cartoon Classics, Family Movie Night, Comedy, Westerns, Sci-Fi, Noir Night and more play free movies back to back on a clock-based schedule, like TV. Up and down on the remote change channels.
 - **Collections.** Hand-picked rows such as Family Movie Night, Charlie Chaplin, Buster Keaton, Popeye, Golden Age Comedy, Classic Sci-Fi and Film Noir Essentials.
 - **Subtitles and accessibility.** A CC button when a movie has subtitles, text size (Normal, Large, Extra large), high contrast, and screen-reader labels.
+- **Posters.** The daily job saves a sharp 480x360 copy of each movie's picture in `posters/`; movies with no picture get a gold-and-black title card.
+- **Series and episodes.** Popeye, Superman, Betty Boop, Casper, Felix, Caminandes, Chaplin and Keaton shorts and the Three Stooges each get a show page with numbered episodes, Continue episode, watched marks and Next episode autoplay.
+- **Phones and tablets.** Bottom tab bar on phones, swipeable rows, a Mini player (picture-in-picture), and turning the phone sideways goes full screen.
 - **Movie previews.** On bigger screens the featured movie plays a short silent preview after a moment.
 - **Categories.** New Free Movies, Classic Cartoons, Holiday Favorites, Nature & Animals, Comedy, Silent Films, Musicals, Westerns, Documentaries, Adventure, Sci-Fi, Film Noir and Horror (by age group).
 - **Controller, remote or keyboard.** Arrow keys or D-pad to move, A / Enter to choose, B / Escape to go back. While a movie plays: OK pauses, left/right skip 10 seconds, Y goes full screen.
@@ -79,6 +82,8 @@ then visit `http://localhost:8000`. To use it on a TV, host the folder (for exam
 - `js/app/browse.js`: Home, Movies, Search, the movie page and Report a problem
 - `js/app/player.js`: the movie player
 - `js/app/live.js`: Live Channels
+- `js/app/series.js`: series and episodes
+- `posters/`: posters saved by the daily job
 - `js/app/start.js`: start-up and remote/controller routing
 - `dist/`: the bundled, shrunk files the app actually loads (made by `npm run build`)
 - `scripts/build.js`, `scripts/build-catalog.js`: bundling and the daily shared catalog

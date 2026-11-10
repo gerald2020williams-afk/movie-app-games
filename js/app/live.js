@@ -87,7 +87,7 @@ function LiveView() {
 
 // Plays a channel. Up/Down (or Channel +/−) on the remote switches channels.
 function LivePlayerView(channelId) {
-  let video = null, wakeLock = null, onNow = null, ticker = 0;
+  let video = null, wakeLock = null, onNow = null, ticker = 0, extrasOff = null;
   const ch = CHANNELS.find((c) => c.id === channelId);
   const awake = async (on) => {
     try {
@@ -111,6 +111,7 @@ function LivePlayerView(channelId) {
       video = el.querySelector("#video");
       el.querySelector("#back").addEventListener("click", back);
       el.querySelector("#full").addEventListener("click", () => fullscreen(video));
+      extrasOff = mobileVideoExtras(el, video);
       SpatialNav.focus(video);
       const tune = async () => {
         const lineup = await channelLineup(ch);
@@ -165,6 +166,7 @@ function LivePlayerView(channelId) {
       return false;
     },
     destroy() {
+      if (extrasOff) extrasOff();
       clearInterval(ticker);
       awake(false);
       if (video) { video.pause(); video.removeAttribute("src"); video.load(); }

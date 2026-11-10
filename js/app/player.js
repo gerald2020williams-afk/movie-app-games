@@ -4,7 +4,7 @@ let sessionAnswer = null; // answer to "You're on cell data" for this visit
 
 // Plays a movie. `list` is the row it came from, used for "Up next".
 function PlayerView(item, list = [], { resume = true } = {}) {
-  let saveTimer = 0, countdown = 0, video = null, info = null;
+  let saveTimer = 0, countdown = 0, video = null, info = null, extrasOff = null;
   let casting = false, remote = null, remoteOffs = [], castOff = null, lastRemote = { pos: 0, dur: 0 };
   let airplayAvailable = false, remotePlaybackAvailable = false;
   const saveProgress = () => { if (video && video.currentTime) History.save(profile.id, item, video.currentTime, video.duration); };
@@ -128,6 +128,7 @@ function PlayerView(item, list = [], { resume = true } = {}) {
       const wrap = el.querySelector("#wrap");
       el.querySelector("#back").addEventListener("click", back);
       el.querySelector("#full").addEventListener("click", () => fullscreen(video));
+      extrasOff = mobileVideoExtras(el, video);
       SpatialNav.focus(video);
 
       const prog = resume ? History.get(profile.id, item.id) : null;
@@ -319,6 +320,7 @@ function PlayerView(item, list = [], { resume = true } = {}) {
     },
     destroy() {
       clearInterval(countdown);
+      if (extrasOff) extrasOff();
       clearMediaSession();
       keepAwake(false);
       document.removeEventListener("visibilitychange", onVisible);
@@ -334,7 +336,52 @@ function PlayerView(item, list = [], { resume = true } = {}) {
   };
 }
 
+// Phones and tablets: a mini player (picture-in-picture), and turning the device sideways
+// goes full screen (upright again leaves it). Returns a function that undoes the listeners.
+function mobileVideoExtras(el, video) {
+  const bar = el.querySelector(".player-bar");
+  const full = el.querySelector("#full");
+  const canPip = (document.pictureInPictureEnabled && !video.disablePictureInPicture) ||
+    (typeof video.webkitSupportsPresentationMode === "function" && video.webkitSupportsPresentationMode("picture-in-picture"));
+  video.setAttribute("autopictureinpicture", "");
+  try { video.autoPictureInPicture = true; } catch (_) {}
+  if (canPip && bar && full) {
+    const pip = document.createElement("button");
+    pip.className = "f btn";
+    pip.id = "pip";
+    pip.textContent = "Mini player";
+    pip.addEventListener("click", async () => {
+      try {
+        if (document.pictureInPictureElement) await document.exitPictureInPicture();
+        else if (video.requestPictureInPicture) await video.requestPictureInPicture();
+        else video.webkitSetPresentationMode(video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
+      } catch (_) { toast("The mini player isn't available for this movie"); }
+    });
+    bar.insertBefore(pip, full);
+  }
+  const touch = matchMedia("(pointer: coarse)").matches;
+  const landscape = matchMedia("(orientation: landscape)");
+  const onTurn = () => {
+    if (!touch || !video.isConnected) return;
+    if (landscape.matches && !video.paused && !document.fullscreenElement) fullscreen(video);
+    else if (!landscape.matches && document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  };
+  if (landscape.addEventListener) landscape.addEventListener("change", onTurn);
+  return () => {
+    if (landscape.removeEventListener) landscape.removeEventListener("change", onTurn);
+    if (document.pictureInPictureElement === video) document.exitPictureInPicture().catch(() => {});
+  };
+}
+
+// Leaving full screen on a phone lets the screen turn freely again.
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) { try { screen.orientation.unlock(); } catch (_) {} }
+});
+
 function fullscreen(video) {
   const req = video.requestFullscreen || video.webkitRequestFullscreen || video.webkitEnterFullscreen;
-  if (req) Promise.resolve(req.call(video)).catch(() => {});
+  if (req) Promise.resolve(req.call(video)).then(() => {
+    // On phones, turn the picture sideways while full screen.
+    if (screen.orientation && screen.orientation.lock && matchMedia("(pointer: coarse)").matches) screen.orientation.lock("landscape").catch(() => {});
+  }).catch(() => {});
 }
