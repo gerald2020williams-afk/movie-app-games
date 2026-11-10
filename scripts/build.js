@@ -11,7 +11,7 @@ const SCRIPTS = [
   "js/data.js", "js/settings.js", "js/input.js", "js/catalog.js", "js/profiles.js", "js/history.js",
   "js/cast.js", "js/library.js", "js/theme.js", "js/remote.js", "js/sync.js",
   "js/app/core.js", "js/app/family.js", "js/app/remote-screens.js", "js/app/browse.js",
-  "js/app/player.js", "js/app/live.js", "js/app/start.js",
+  "js/app/player.js", "js/app/live.js", "js/app/series.js", "js/app/start.js",
 ];
 // Old TV browsers: Samsung Tizen 4 / LG webOS 4 era is roughly Chrome 56–63 and Safari 11.
 const TARGET = ["chrome61", "safari11", "edge79", "firefox60"];

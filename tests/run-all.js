@@ -9,7 +9,7 @@ const run = (file) => execFileSync(process.execPath, [path.join(here, file)], { 
 
 if (!fs.existsSync(path.join(here, "clip.webm"))) run("make-clip.js");
 let failed = 0;
-for (const t of ["test-profiles.js", "test-polish.js", "test-cast.js", "test-batch.js", "test-batch2.js", "test-access.js", "test-live.js", "test-catalog-build.js", "test-posters.js"]) {
+for (const t of ["test-profiles.js", "test-polish.js", "test-cast.js", "test-batch.js", "test-batch2.js", "test-access.js", "test-live.js", "test-catalog-build.js", "test-posters.js", "test-series.js"]) {
   process.stdout.write(`\n== ${t}\n`);
   try {
     const out = run(t);

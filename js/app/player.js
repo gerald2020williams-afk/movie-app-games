@@ -93,7 +93,7 @@ function PlayerView(item, list = [], { resume = true } = {}) {
     let left = 10;
     box.innerHTML = `
       <span class="thumb" style="background-image:url('${Catalog.image(next.id)}')"></span>
-      <div><small>Up next</small><b>${escapeHtml(next.title)}</b><span id="upnext-count">Starts in ${left} seconds</span>
+      <div><small>${next.episode ? `Next episode · ${next.episode}` : "Up next"}</small><b>${escapeHtml(next.title)}</b><span id="upnext-count">Starts in ${left} seconds</span>
         <div class="btns"><button class="f btn gold" id="next-now">▶ Play now</button><button class="f btn" id="next-cancel">Cancel</button></div></div>`;
     box.hidden = false;
     Catalog.info(next.id).then((info) => { if (info.image) sharpen(box.querySelector(".thumb"), info.image); }).catch(() => {});

@@ -101,6 +101,20 @@ const SHELVES = [
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(horror)" },
 ];
 
+// Series: cartoons and shorts that belong together get a show page with numbered episodes.
+// Episodes are gathered from the rows listed, matched by title, oldest first.
+const SERIES = [
+  { id: "s-popeye", name: "Popeye the Sailor", level: 0, match: /\bpopeye\b/i, shelves: ["popeye", "cartoons", "animation"] },
+  { id: "s-superman", name: "Superman (1941–1943)", level: 0, match: /\bsuperman\b/i, shelves: ["superman", "cartoons", "animation"] },
+  { id: "s-betty", name: "Betty Boop", level: 0, match: /\bbetty\s*boop\b/i, shelves: ["cartoons", "animation"] },
+  { id: "s-casper", name: "Casper the Friendly Ghost", level: 0, match: /\bcasper\b/i, shelves: ["cartoons", "animation", "holiday"] },
+  { id: "s-felix", name: "Felix the Cat", level: 0, match: /\bfelix\b/i, shelves: ["cartoons", "animation", "silent"] },
+  { id: "s-caminandes", name: "Caminandes", level: 0, match: /\bcaminandes\b/i, shelves: ["new-family"] },
+  { id: "s-chaplin", name: "Charlie Chaplin Shorts", level: 0, match: /chaplin/i, shelves: ["chaplin", "silent", "comedy"] },
+  { id: "s-keaton", name: "Buster Keaton Shorts", level: 0, match: /.*/, shelves: ["keaton"] },
+  { id: "s-stooges", name: "The Three Stooges", level: 1, match: /\bstooges?\b/i, shelves: ["comedy", "golden-comedy"] },
+];
+
 // Live Channels: movies from these rows play back to back on a fixed schedule, like TV.
 // Everyone who tunes in at the same time sees the same movie at the same spot.
 const CHANNELS = [

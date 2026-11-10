@@ -22,6 +22,7 @@ function HomeView() {
           ${continueSection()}
           ${myListSection()}
           <section class="shelf top10" id="top10"><h2>Top 10 This Week</h2><div class="row"></div></section>
+          <section class="shelf" id="series-row"><h2>Series &amp; Shorts</h2><div class="row"></div></section>
           ${shelves.map(shelfSection).join("")}
         </div>
       </section>`;
@@ -30,6 +31,7 @@ function HomeView() {
       const mine = el.querySelector("#mylist");
       if (mine) wireCards(mine, allowed(Library.myList(profile.id)));
       fillTop10(el.querySelector("#top10"));
+      fillSeriesRow(el.querySelector("#series-row"));
       SpatialNav.focus(el.querySelector("#hero-play"));
 
       let heroItems = [], heroShelf = shelves[0], heroAt = 0;
@@ -286,6 +288,18 @@ function DetailView(item, list = []) {
           trailer.textContent = "Stop preview";
         }).catch(() => toast("No preview for this movie"));
       });
+      // Part of a series? Offer all its episodes.
+      seriesFor(item).then((found) => {
+        if (!found || !el.isConnected) return;
+        const btn = document.createElement("button");
+        btn.className = "f btn";
+        btn.textContent = `All episodes (${found.episodes.length})`;
+        btn.addEventListener("click", () => go(SeriesView(found.series.id)));
+        el.querySelector(".mp-copy .btns").appendChild(btn);
+        const tag = el.querySelector(".mp-copy .tag");
+        const ep = found.episodes.find((e) => e.id === item.id);
+        if (tag && ep) tag.textContent = `${found.series.name} · Episode ${ep.episode}`;
+      }).catch(() => {});
       const more = el.querySelector("#more-like");
       if (more) wireCards(more, others);
       SpatialNav.focus(resume || el.querySelector("#play"));

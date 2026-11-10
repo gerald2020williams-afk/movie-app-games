@@ -328,6 +328,17 @@ body.remote-mode .nav { display: none; }
 .hero-art.titlecard small, .mp-art.titlecard small { font-size: 1rem; }
 .mp-art.titlecard video:not([hidden]) { position: absolute; inset: 0; }
 
+/* ---------- Series ---------- */
+.ep-count { position: absolute; right: .5rem; bottom: .5rem; padding: .15rem .5rem; border-radius: .4rem; background: rgba(0,0,0,.72); color: #fff; font-size: .7rem; font-weight: 700; }
+.titlecard .ep-count { position: static; justify-self: center; margin-top: .2rem; }
+.series-head { display: grid; grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); gap: 2rem; align-items: center; }
+.series-head .thumb { aspect-ratio: 4/3; border-radius: 1rem; }
+.series-head h1 { font-family: var(--display); font-weight: 800; font-size: 2.6rem; margin: .2rem 0; line-height: 1.05; }
+.titlecard.series-art b { font-size: 1.8rem; }
+.episodes { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 1.2rem; }
+.watched { position: absolute; left: .5rem; bottom: .5rem; padding: .15rem .5rem; border-radius: .4rem; background: rgba(0,0,0,.72); color: var(--gold-light); font-size: .7rem; font-weight: 700; }
+.titlecard .watched { position: static; justify-self: center; }
+
 /* ---------- Live Channels ---------- */
 .channels { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: 1rem; }
 .channel { display: grid; gap: .45rem; text-align: left; padding: 1.1rem 1.2rem; border-radius: 1rem; background: var(--panel); border: .08rem solid var(--line); min-width: 0; }
@@ -398,6 +409,8 @@ video::cue { font-family: var(--body); font-size: 1.15em; line-height: 1.35; bac
   .nav-btn { display: none; }
   .log-row { grid-template-columns: 4rem minmax(0, 1fr) auto; }
   .edit-grid { grid-template-columns: 1fr; }
+  .series-head { grid-template-columns: 1fr; }
+  .series-head h1 { font-size: 2rem; }
   .pad-grid { grid-template-columns: repeat(3, 4.5rem); }
   .player { height: calc(100vh - 8rem); }
   .arcade { height: calc(100vh - 8rem); }
