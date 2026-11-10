@@ -73,8 +73,9 @@ const App = (() => {
 
   // ----- shared bits -----
   function shelvesFor(level) {
-    return SHELVES.filter((s) => s.level <= level)
-      .sort((a, b) => (a.level === level ? 0 : 1) - (b.level === level ? 0 : 1));
+    // New movies first, then rows made for this age group, then the rest.
+    const rank = (s) => (s.featured ? 0 : s.level === level ? 1 : 2);
+    return SHELVES.filter((s) => s.level <= level).sort((a, b) => rank(a) - rank(b));
   }
 
   function cardHtml(item, shelf) {
@@ -292,13 +293,50 @@ const App = (() => {
       render(el) {
         el.innerHTML = `<section class="player">
           <div class="player-bar"><button class="f btn" id="back">← Back</button><h1>${escapeHtml(item.title)}</h1>
-            <span class="note">Free from the Internet Archive</span></div>
-          <iframe src="${Catalog.embed(item.id)}" title="${escapeHtml(item.title)}" allow="autoplay; fullscreen" allowfullscreen></iframe>
+            <button class="f btn" id="full">⛶ Full screen</button></div>
+          <div class="screen-wrap" id="wrap">
+            <video class="f" id="video" controls playsinline preload="auto" poster="${Catalog.image(item.id)}"></video>
+            <div class="loading" id="loading">Loading movie…</div>
+          </div>
         </section>`;
+        const video = el.querySelector("#video");
+        const wrap = el.querySelector("#wrap");
         el.querySelector("#back").addEventListener("click", back);
-        SpatialNav.focus(el.querySelector("#back"));
+        el.querySelector("#full").addEventListener("click", () => fullscreen(video));
+        SpatialNav.focus(video);
+
+        // Play the movie file directly so one press of Play is enough.
+        Catalog.videoFile(item.id).then((src) => {
+          if (!video.isConnected) return;
+          video.src = src;
+          el.querySelector("#loading").hidden = true;
+          video.play().catch(() => toast("Press OK or tap the movie to start"));
+        }).catch(() => {
+          // Fall back to the Internet Archive's own player.
+          if (!wrap.isConnected) return;
+          wrap.innerHTML = `<iframe src="${Catalog.embed(item.id)}" title="${escapeHtml(item.title)}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+        });
+      },
+      onAction(action) {
+        const video = view.querySelector("#video");
+        if (!video || document.activeElement !== video) return false;
+        if (action === "ok" || action === "a") { video.paused ? video.play() : video.pause(); return true; }
+        if (action === "left") { video.currentTime = Math.max(0, video.currentTime - 10); toast("Back 10 seconds"); return true; }
+        if (action === "right") { video.currentTime = Math.min(video.duration || 0, video.currentTime + 10); toast("Forward 10 seconds"); return true; }
+        if (action === "y") { fullscreen(video); return true; }
+        return false;
+      },
+      destroy() {
+        const video = view.querySelector("#video");
+        if (video) { video.pause(); video.removeAttribute("src"); video.load(); }
+        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       },
     };
+  }
+
+  function fullscreen(video) {
+    const req = video.requestFullscreen || video.webkitRequestFullscreen || video.webkitEnterFullscreen;
+    if (req) Promise.resolve(req.call(video)).catch(() => {});
   }
 
   // ----- input routing -----

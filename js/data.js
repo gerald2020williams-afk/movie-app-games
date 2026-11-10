@@ -13,6 +13,12 @@ const AGE_LABELS = ["All ages", "Kids", "Teens", "Adults"];
 // Movie shelves pulled live from the Internet Archive (free, legal, public domain films).
 // `q` is an Internet Archive search query.
 const SHELVES = [
+  // Newer, modern-looking movies: free "open movies" made by the Blender Studio and others,
+  // shared under Creative Commons so anyone can watch them for free.
+  { id: "new-family", title: "New Free Movies", level: 0, featured: true, dedupe: true,
+    q: "mediatype:(movies) AND title:(\"Big Buck Bunny\" OR \"Caminandes\" OR \"Wing It\" OR \"Coffee Run\" OR \"Agent 327\") AND (subject:(blender OR \"open movie\" OR animation) OR creator:(blender))" },
+  { id: "new-teens", title: "New Free Movies for Teens", level: 2, featured: true, dedupe: true,
+    q: "mediatype:(movies) AND title:(\"Sintel\" OR \"Tears of Steel\" OR \"Cosmos Laundromat\" OR \"Sprite Fright\" OR \"Elephants Dream\") AND (subject:(blender OR \"open movie\" OR animation OR \"science fiction\") OR creator:(blender))" },
   { id: "cartoons", title: "Classic Cartoons", level: 0,
     q: "collection:(classic_cartoons) AND mediatype:(movies)" },
   { id: "animation", title: "More Animation", level: 0,
