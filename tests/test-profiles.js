@@ -32,7 +32,7 @@ const out = require('path').join(__dirname, 'screenshots'); require('fs').mkdirS
   console.log('who after pin:', await p.textContent('#who-name'));
   console.log('rows:', await p.$$eval('.shelf h2', (h) => h.map((x) => x.firstChild.textContent.trim())));
   await p.waitForTimeout(3500);
-  console.log('preview src:', await p.$eval('#hero-video', (v) => v.getAttribute('src')));
+  console.log('home is still (no moving video, no auto-rotate):', !(await p.$('#hero-video, .hero video')), await p.evaluate(async () => { const t = document.querySelector('#hero-title').textContent; await new Promise((r) => setTimeout(r, 10000)); return t === document.querySelector('#hero-title').textContent; }));
   await p.screenshot({ path: out + '/pf-3-home.png' });
 
   // reload: locked profile asks again

@@ -4,7 +4,8 @@
   "description": "Free movies for the whole family, for TV, tablet, phone and computer.",
   "scripts": {
     "start": "python3 -m http.server 8000",
-    "test": "node tests/run-all.js"
+    "test": "node tests/run-all.js",
+    "stress": "node tests/stress.js"
   },
   "devDependencies": {
     "playwright": "^1.40.0"

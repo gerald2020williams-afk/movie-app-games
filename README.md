@@ -74,4 +74,10 @@ npx playwright install chromium
 npm test
 ```
 
-They cover profiles and the parent PIN, Continue Watching and Up next, casting, My List, Top 10, Browse, the phone remote, sync between two devices, the safety filter, data saver and lock-screen controls.
+Stress test (many viewers at once, a slow or broken movie library, a big family, long sessions, a huge catalog):
+
+```
+VIEWERS=40 node tests/stress.js
+```
+
+The regular tests cover profiles and the parent PIN, Continue Watching and Up next, casting, My List, Top 10, Browse, the phone remote, sync between two devices, the safety filter, data saver and lock-screen controls.

@@ -43,9 +43,16 @@ const App = (() => {
     current = v;
     document.getElementById("toast").classList.remove("show");
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.go === v.tab));
+    // Stop watching posters from the screen we're leaving (prevents a slow memory build-up).
+    if (upgrader) upgrader.disconnect();
+    // Each screen gets its own fresh box. Late answers for a screen that's gone (pictures,
+    // movie details) then land in a detached box harmlessly instead of breaking the new screen.
     view.innerHTML = "";
     view.scrollTop = 0;
-    v.render(view);
+    const root = document.createElement("div");
+    root.className = "view-root";
+    view.appendChild(root);
+    v.render(root);
     if (focusSel) {
       // Movie rows fill in a moment later, so try again shortly after.
       const restore = () => { const el = view.querySelector(focusSel); if (el && current === v) SpatialNav.focus(el); return !!el; };
@@ -101,7 +108,8 @@ const App = (() => {
       if (!e.isIntersecting) continue;
       upgrader.unobserve(e.target);
       const card = e.target;
-      Catalog.info(card.dataset.id).then((info) => {
+      Catalog.info(card.dataset.id, { wanted: () => card.isConnected }).then((info) => {
+        if (!card.isConnected) return;
         if (info.broken) return hideCard(card);
         if (info.image) sharpen(card.querySelector(".thumb"), info.image);
       }).catch(() => {});
@@ -753,7 +761,7 @@ const App = (() => {
   }
 
   function HomeView() {
-    let rotate = 0, previewTimer = 0, stopPreview = () => {};
+    let rotate = 0;
     return {
       tab: "home",
       render(el) {
@@ -761,7 +769,7 @@ const App = (() => {
         el.innerHTML = `<section class="home">
           <div class="watch">
             <div class="hero" id="hero">
-              <div class="hero-bg" id="hero-bg"></div><video class="hero-video" id="hero-video" muted playsinline loop preload="none" aria-hidden="true"></video><div class="hero-shade"></div><div class="hero-art" id="hero-art"></div>
+              <div class="hero-bg" id="hero-bg"></div><div class="hero-shade"></div><div class="hero-art" id="hero-art"></div>
               <div class="hero-copy">
                 <span class="tag">${escapeHtml(Theme.greeting() ? `${Theme.greeting()}, ${profile.name}` : `Picks for ${profile.name}`)}</span>
                 <h1 id="hero-title">Loading movies…</h1>
@@ -802,30 +810,8 @@ const App = (() => {
           el.querySelector("#hero-meta").textContent = [heroShelf.title, it.year, it.runtime].filter(Boolean).join(" · ");
           el.querySelector("#hero-desc").textContent = it.description || "A free movie from the Internet Archive.";
           el.querySelector("#hero-dots").innerHTML = heroItems.map((_, i) => `<i class="${i === heroAt ? "on" : ""}"></i>`).join("");
-          startPreview(it);
         };
 
-        // A short silent preview plays behind the featured movie after a moment (big screens only).
-        const heroVideo = el.querySelector("#hero-video");
-        const previewsOn = () => matchMedia("(min-width: 761px)").matches
-          && !Settings.speedMode() && Settings.get("saver") !== "on" && !Settings.onCellData()
-          && !matchMedia("(prefers-reduced-motion: reduce)").matches
-          && !(navigator.connection && navigator.connection.saveData);
-        const startPreview = (it) => {
-          clearTimeout(previewTimer);
-          heroVideo.classList.remove("playing");
-          heroVideo.pause();
-          if (!previewsOn()) return;
-          previewTimer = setTimeout(() => {
-            Catalog.videoFile(it.id).then((src) => {
-              if (!heroVideo.isConnected || heroItems[heroAt] !== it) return;
-              heroVideo.src = src + "#t=45";
-              heroVideo.onplaying = () => heroVideo.classList.add("playing");
-              heroVideo.play().catch(() => {});
-            }).catch(() => {});
-          }, 2500);
-        };
-        stopPreview = () => { clearTimeout(previewTimer); heroVideo.pause(); heroVideo.removeAttribute("src"); heroVideo.load(); };
         el.querySelector("#hero-play").addEventListener("click", () => heroItems[heroAt] && go(PlayerView(heroItems[heroAt], heroItems, { resume: true })));
         el.querySelector("#hero-info").addEventListener("click", () => heroItems[heroAt] && go(DetailView(heroItems[heroAt], heroItems)));
 
@@ -847,7 +833,12 @@ const App = (() => {
             heroShelf = shelves[i];
             heroItems = picks;
             showHero();
-            rotate = setInterval(() => { heroAt = (heroAt + 1) % heroItems.length; showHero(); }, previewsOn() ? 25000 : 9000);
+            // The featured movie stays put; tap a dot to see another pick.
+            el.querySelector("#hero-dots").addEventListener("click", (e) => {
+              const dots = [...el.querySelectorAll("#hero-dots i")];
+              const i = dots.indexOf(e.target);
+              if (i >= 0) { heroAt = i; showHero(); }
+            });
             return;
           }
           if (!heroSet && el.isConnected) {
@@ -856,7 +847,7 @@ const App = (() => {
           }
         })();
       },
-      destroy() { clearInterval(rotate); stopPreview(); },
+      destroy() { clearInterval(rotate); },
     };
   }
 

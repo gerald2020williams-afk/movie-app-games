@@ -140,7 +140,7 @@ const SpatialNav = {
   focus(el) {
     if (!el) return;
     el.focus({ preventScroll: true });
-    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
   },
 };
 

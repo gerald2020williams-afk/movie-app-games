@@ -25,6 +25,32 @@ const Catalog = (() => {
     }
   }
 
+  // Fetch JSON with a time limit. When the Internet Archive is busy (429 or 5xx) or slow,
+  // wait and try again a couple of times, backing off each time, instead of hanging.
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function fetchJson(src, { timeout = 10000, retries = 2 } = {}) {
+    for (let attempt = 0; ; attempt++) {
+      const ctrl = "AbortController" in window ? new AbortController() : null;
+      const timer = setTimeout(() => ctrl && ctrl.abort(), timeout);
+      try {
+        const res = await fetch(src, ctrl ? { signal: ctrl.signal } : {});
+        clearTimeout(timer);
+        if (res.ok) return await res.json();
+        const busy = res.status === 429 || res.status >= 500;
+        if (!busy || attempt >= retries) throw Object.assign(new Error("HTTP " + res.status), { status: res.status });
+        const wait = Number(res.headers.get("Retry-After")) * 1000 || (1000 * 2 ** attempt + Math.random() * 500);
+        await sleep(Math.min(wait, 8000));
+      } catch (e) {
+        clearTimeout(timer);
+        // A request that timed out once is likely to time out again: try only once more.
+        const timedOut = e.name === "AbortError";
+        if (timedOut) e.timedOut = true;
+        if (e.status || attempt >= retries || (timedOut && attempt >= 1)) throw e;
+        await sleep(1000 * 2 ** attempt + Math.random() * 500);
+      }
+    }
+  }
+
   function url(q, rows, sort = "downloads desc", page = 1) {
     const p = new URLSearchParams({ q, rows: String(rows), page: String(page), output: "json" });
     FIELDS.forEach((f) => p.append("fl[]", f));
@@ -50,10 +76,10 @@ const Catalog = (() => {
     const src = url(q, rows, sort, page);
     let data;
     try {
-      const res = await fetch(src);
-      if (!res.ok) throw new Error(res.status);
-      data = await res.json();
-    } catch (_) {
+      data = await fetchJson(src);
+    } catch (e) {
+      // Busy or not answering: don't pile on. Blocked fetch (some TV browsers): try the older JSONP way.
+      if (e.status || e.timedOut) throw e;
       data = await jsonp(src);
     }
     return (data.response && data.response.docs || [])
@@ -70,7 +96,17 @@ const Catalog = (() => {
   }
   const first = (v) => (Array.isArray(v) ? v[0] : v);
 
-  async function search(q, rows = 24, { sort = "downloads desc", page = 1, ttl = SEARCH_TTL } = {}) {
+  const inflight = new Map();
+  function search(q, rows = 24, opts = {}) {
+    const key = "ia:" + q + "|" + rows + "|" + (opts.sort || "downloads desc") + "|" + (opts.page || 1);
+    if (memo.has(key)) return Promise.resolve(memo.get(key));
+    // Two parts of the screen asking for the same list share one request.
+    if (inflight.has(key)) return inflight.get(key);
+    const p = searchNow(q, rows, opts).finally(() => inflight.delete(key));
+    inflight.set(key, p);
+    return p;
+  }
+  async function searchNow(q, rows = 24, { sort = "downloads desc", page = 1, ttl = SEARCH_TTL } = {}) {
     const key = "ia:" + q + "|" + rows + "|" + sort + "|" + page;
     if (memo.has(key)) return memo.get(key);
     const cached = load(key);
@@ -114,21 +150,25 @@ const Catalog = (() => {
   // Run at most 4 detail lookups at once so rows don't flood the network.
   let active = 0;
   const queue = [];
-  function limited(fn) {
+  // `wanted` lets a screen drop its queued lookups once it's gone (no wasted requests or memory).
+  function limited(fn, wanted) {
     return new Promise((resolve, reject) => {
-      const run = () => { active++; fn().then(resolve, reject).finally(() => { active--; if (queue.length) queue.shift()(); }); };
+      const next = () => { active--; if (queue.length) queue.shift()(); };
+      const run = () => {
+        if (wanted && !wanted()) { reject(Object.assign(new Error("not needed"), { cancelled: true })); if (queue.length) queue.shift()(); return; }
+        active++;
+        fn().then(resolve, reject).finally(next);
+      };
       active < 4 ? run() : queue.push(run);
     });
   }
 
-  function info(id) {
+  function info(id, { wanted } = {}) {
     if (infoMemo.has(id)) return infoMemo.get(id);
     const cached = infoStore()[id];
     if (cached) { const p = Promise.resolve(cached); infoMemo.set(id, p); return p; }
     const p = limited(async () => {
-      const res = await fetch(`https://archive.org/metadata/${encodeURIComponent(id)}/files`);
-      if (!res.ok) throw new Error(res.status);
-      const data = await res.json();
+      const data = await fetchJson(`https://archive.org/metadata/${encodeURIComponent(id)}/files`, { timeout: 10000, retries: 1 });
       const files = data.result || data.files || [];
       const link = (name) => `https://archive.org/download/${encodeURIComponent(id)}/${name.split("/").map(encodeURIComponent).join("/")}`;
 
@@ -147,7 +187,7 @@ const Catalog = (() => {
       infoStore()[id] = result;
       saveInfoStore();
       return result;
-    });
+    }, wanted);
     infoMemo.set(id, p);
     p.catch(() => infoMemo.delete(id)); // network trouble: try again next time
     return p;

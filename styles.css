@@ -49,6 +49,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .avatar { width: 2.2rem; height: 2.2rem; border-radius: 50%; background: var(--gold-light); color: var(--on-gold); font-weight: 800; display: grid; place-items: center; }
 
 main { min-height: 0; overflow: hidden; outline: none; }
+.view-root { height: 100%; }
 
 /* ---------- Home ---------- */
 .home { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.6rem; padding: 0 2.4rem 1.6rem; }
@@ -61,7 +62,7 @@ main { min-height: 0; overflow: hidden; outline: none; }
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 35%); mask-image: linear-gradient(90deg, transparent 0%, #000 35%); }
 .hero-video.playing { opacity: 1; }
 .hero-video.playing ~ .hero-art { opacity: 0; }
-.hero-art { transition: opacity .8s ease; }
+
 .hero-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,10,10,.92) 0%, rgba(10,10,10,.55) 50%, rgba(10,10,10,.1) 100%); }
 .hero-art { position: absolute; right: 2.5rem; top: 45%; transform: translateY(-50%); height: 74%; aspect-ratio: 4/3; border-radius: .9rem; background-size: cover; background-position: center; box-shadow: 0 1.5rem 3rem -1rem rgba(0,0,0,.8); }
 .hero-copy { position: relative; padding: 2rem; max-width: min(30rem, 100%); display: grid; gap: .6rem; }
@@ -74,19 +75,19 @@ main { min-height: 0; overflow: hidden; outline: none; }
 .btn { font-weight: 700; font-size: 1rem; padding: .6rem 1.4rem; border-radius: .6rem; background: rgba(255,255,255,.14); color: #fff; }
 .btn.gold { background: var(--gold); color: var(--on-gold); }
 .dots { position: absolute; right: 1.6rem; bottom: 1.4rem; display: flex; gap: .4rem; }
-.dots i { width: .5rem; height: .5rem; border-radius: 1rem; background: rgba(255,255,255,.35); transition: width .3s; }
+.dots i { width: .5rem; height: .5rem; border-radius: 1rem; background: rgba(255,255,255,.35); cursor: pointer; }
 .dots i.on { width: 1.6rem; background: #fff; }
 
 .shelf h2 { font-size: 1.1rem; margin: 0 0 .7rem; display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
 .shelf h2 small { color: var(--dim); font-weight: 500; font-size: .8rem; }
-.row { display: grid; grid-auto-flow: column; grid-auto-columns: 10.5rem; gap: .9rem; overflow-x: auto; scrollbar-width: none; padding: .5rem; margin: -.5rem; scroll-behavior: smooth; }
+.row { display: grid; grid-auto-flow: column; grid-auto-columns: 10.5rem; gap: .9rem; overflow-x: auto; scrollbar-width: none; padding: .5rem; margin: -.5rem; }
 .row::-webkit-scrollbar { display: none; }
 .card { display: grid; gap: .45rem; text-align: left; border-radius: .7rem; }
 .thumb { aspect-ratio: 4/3; border-radius: .7rem; background: var(--panel-2) center / cover no-repeat; position: relative; overflow: hidden; }
 .thumb .rating { position: absolute; top: .5rem; left: .5rem; background: rgba(0,0,0,.6); border-color: transparent; color: #fff; }
 .card .t { font-weight: 600; font-size: .85rem; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding: 0 .2rem; }
 .card .y { font-size: .75rem; color: var(--dim); padding: 0 .2rem; }
-.card:focus-visible, .card.is-focus { transform: scale(1.04); }
+/* Everything stays still: focus shows only as the gold ring, nothing grows or slides. */
 /* Sharper pictures swap in quietly, with no blur or flash. */
 .progress { position: absolute; left: .6rem; right: .6rem; bottom: .6rem; height: .3rem; border-radius: 1rem; background: rgba(255,255,255,.3); overflow: hidden; }
 .progress i { display: block; height: 100%; background: var(--gold); }
@@ -105,8 +106,7 @@ main { min-height: 0; overflow: hidden; outline: none; }
 .upnext b { display: block; font-family: var(--display); font-size: 1.2rem; line-height: 1.15; margin: .2rem 0; }
 .upnext span { color: var(--dim); font-size: .85rem; }
 .upnext .btns { margin-top: .6rem; }
-.skeleton .thumb { animation: pulse 2.4s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .75 } }
+.skeleton .thumb { opacity: .6; }
 .empty { color: var(--dim); font-size: .9rem; padding: 1rem 0; }
 
 /* ---------- Games rail ---------- */
@@ -226,7 +226,7 @@ main { min-height: 0; overflow: hidden; outline: none; }
 .arcade .help { color: var(--dim); font-size: .85rem; text-align: center; }
 
 /* ---------- Toast ---------- */
-.toast { position: fixed; left: 50%; bottom: calc(2rem + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 1rem); background: var(--panel-2); border: .08rem solid var(--line); padding: .7rem 1.2rem; border-radius: .7rem; opacity: 0; transition: .25s; pointer-events: none; }
+.toast { position: fixed; left: 50%; bottom: calc(2rem + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 0); background: var(--panel-2); border: .08rem solid var(--line); padding: .7rem 1.2rem; border-radius: .7rem; opacity: 0; transition: .25s; pointer-events: none; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 @media (max-width: 1100px) { .hero-art { display: none; } }
@@ -340,6 +340,7 @@ body.remote-mode .nav { display: none; }
   .who .avatar { font-size: 15px; }
   .pad { display: none; }
   main { overflow: visible; }
+  .view-root { height: auto; }
   .home { grid-template-columns: 1fr; padding: 0 1rem 1.2rem; height: auto; }
   .watch { overflow: visible; }
   .hero { min-height: 24rem; }
