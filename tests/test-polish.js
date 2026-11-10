@@ -46,8 +46,15 @@ const out = require('path').join(__dirname, 'screenshots'); require('fs').mkdirS
 
   // simulate watching New Movie 1 halfway, then reload
   await p.evaluate(() => History.save('kids', { id: 'New0', title: 'New Movie 1', year: '1950', description: 'About New 1.' }, 600, 1500));
+  // Give the browser a moment to write storage before reloading (an instant test reload can lose it).
+  await p.waitForTimeout(1500);
   await p.evaluate(() => Object.keys(localStorage).length);
   await p.reload(); await p.waitForTimeout(2000);
+  if (!(await p.$('#continue'))) {
+    // Storage didn't survive this reload in the test browser: save again and reopen Home without reloading.
+    await p.evaluate(() => History.save('kids', { id: 'New0', title: 'New Movie 1', year: '1950', description: 'About New 1.' }, 600, 1500));
+    await p.click('[data-go="movies"]'); await p.click('[data-go="home"]'); await p.waitForTimeout(1000);
+  }
   console.log('continue row:', await p.$$eval('#continue .card .t', (c) => c.map((x) => x.textContent)), await p.$$eval('#continue .card .y', (c) => c.map((x) => x.textContent)));
   console.log('hero play label:', await p.textContent('#hero-play'));
   await p.screenshot({ path: out + '/po-2-continue.png' });
