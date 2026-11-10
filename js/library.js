@@ -51,5 +51,35 @@ const Library = (() => {
       write("log:" + pid, log);
     },
     clearHistory(pid) { write("log:" + pid, []); },
+
+    // ----- Movies a parent hid (for every profile on this device) -----
+    hidden() { return read("hidden-movies", []); },
+    isHidden(id) { return this.hidden().some((x) => x.id === id); },
+    hide(item) { write("hidden-movies", [{ id: item.id, title: item.title, at: Date.now() }, ...this.hidden().filter((x) => x.id !== item.id)]); },
+    unhide(id) { write("hidden-movies", this.hidden().filter((x) => x.id !== id)); },
+  };
+})();
+
+// Kid safety: some very old cartoons and films contain racist stereotypes or wartime propaganda.
+// Profiles with the safety filter on (all but Adults, by default) never see titles that match these.
+const Safety = (() => {
+  const TITLES = [
+    "coal black", "jungle jitters", "tin pan alley cats", "uncle tom", "clean pastures", "angel puss",
+    "goldilocks and the jivin", "sunday go to meetin", "hittin' the trail for hallelujah", "all this and rabbit stew",
+    "tokio jokio", "nips the nips", "japoteurs", "commando duck", "you're a sap", "scrub me mama", "the ducktators",
+    "der fuehrer", "education for death", "little black sambo", "inki", "mighty hunters", "jasper", "censored eleven",
+    "bugs bunny nips", "herr meets hare", "plane daffy", "the isle of pingo pongo", "little lion hunter",
+  ];
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const TITLE_RE = new RegExp("\\b(" + TITLES.map(esc).join("|") + ")\\b", "i");
+  const WORDS = /\b(japs?|nips|sambo|darkies?|darky|pickaninn\w*|mammy|injuns?|redskins?|blackface|minstrel|coons?|propaganda|racist|racism|stereotyp\w*)\b/i;
+  return {
+    filterOn(profile) {
+      if (!profile) return true;
+      return profile.safety !== undefined ? !!profile.safety : profile.level < 3;
+    },
+    isUnsafe(item) {
+      return TITLE_RE.test(item.title || "") || WORDS.test(item.title || "") || WORDS.test(item.description || "");
+    },
   };
 })();

@@ -17,6 +17,12 @@ A TV-style app for the whole family: watch free classic movies and cartoons, pla
 - **Holiday looks** that switch on around Christmas, New Year, Valentine's Day, the Fourth of July, Halloween and Thanksgiving, or can be picked by a parent.
 - **Phone remote.** The TV shows a code and QR code; a phone scans it and becomes a remote with arrows, OK, Back, Home and search. Devices connect directly using the free PeerJS service.
 - **Install as an app** on phones, tablets and computers (Install app button, or Share → Add to Home Screen on iPhone/iPad). The app's own files are saved for offline opening.
+- **Kid safety filter.** Very old cartoons and films with racist stereotypes or wartime propaganda are left out of kids' rows and hidden for every profile with the safety filter on (all but Adults by default; changeable per profile). Parents can also hide any movie with **Hide this movie**, and undo it under Hidden movies.
+- **Credits.** Each movie page credits its maker and license, and About & credits lists the Creative Commons films, fonts and libraries, plus a short privacy note.
+- **Sync devices.** Link the family's devices with a 6-digit code. Profiles, the parent PIN, My List, Continue Watching, likes, hidden movies, watch history and the app look stay matched whenever two linked devices are open at the same time. They connect directly; nothing is stored on a server.
+- **Speed mode** for smart TVs and slower devices (automatic on TVs): no blur, previews or animations.
+- **Cell data.** On Android phones the app notices cell data and asks before playing: data saver (smaller file) or full quality. Data saver can also be always on.
+- **Lock-screen controls.** Play, pause, skip and next movie from the lock screen, headphones, car or keyboard media keys.
 - **Movie previews.** On bigger screens the featured movie plays a short silent preview after a moment.
 - **Categories.** New Free Movies, Classic Cartoons, Holiday Favorites, Nature & Animals, Comedy, Silent Films, Musicals, Westerns, Documentaries, Adventure, Sci-Fi, Film Noir and Horror (by age group).
 - **Controller, remote or keyboard.** Arrow keys or D-pad to move, A / Enter to choose, B / Escape to go back. While a movie plays: OK pauses, left/right skip 10 seconds, Y goes full screen.
@@ -50,7 +56,21 @@ then visit `http://localhost:8000`. To use it on a TV, host the folder (for exam
 - `js/library.js`: My List, thumbs up/down and watch history
 - `js/theme.js`: Black & Gold and the holiday looks
 - `js/remote.js`: phone-as-remote connection
+- `js/sync.js`: syncing between linked devices
+- `js/settings.js`: settings for this device (speed mode, data saver)
 - `sw.js`, `manifest.webmanifest`, `icons/`: install as an app
 - `js/trivia.js`: the trivia game
 - `js/space-dodge.js`: the Space Dodge arcade game
 - `js/app.js`: screens and navigation
+
+## Testing
+
+The tests open the app in a headless browser with stand-in movies, so they work offline:
+
+```
+npm install
+npx playwright install chromium
+npm test
+```
+
+They cover profiles and the parent PIN, Continue Watching and Up next, casting, My List, Top 10, Browse, the phone remote, sync between two devices, the safety filter, data saver and lock-screen controls.

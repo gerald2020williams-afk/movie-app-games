@@ -2,7 +2,7 @@
 
 const Catalog = (() => {
   const API = "https://archive.org/advancedsearch.php";
-  const FIELDS = ["identifier", "title", "year", "description", "runtime"];
+  const FIELDS = ["identifier", "title", "year", "description", "runtime", "creator", "licenseurl"];
   // Only ask for movies that have a video file the app can play.
   const PLAYABLE = ' AND format:("h.264" OR "h.264 HD" OR "h.264 IA" OR MPEG4 OR "512Kb MPEG4")';
   const SEARCH_TTL = 12 * 60 * 60 * 1000; // movie lists are kept for 12 hours
@@ -64,6 +64,8 @@ const Catalog = (() => {
         year: d.year ? String(first(d.year)).slice(0, 4) : "",
         runtime: d.runtime ? String(first(d.runtime)) : "",
         description: cleanText(Array.isArray(d.description) ? d.description.join(" ") : d.description || "").slice(0, 600),
+        creator: d.creator ? String(first(d.creator)).slice(0, 80) : "",
+        license: d.licenseurl ? String(first(d.licenseurl)) : "",
       }));
   }
   const first = (v) => (Array.isArray(v) ? v[0] : v);
@@ -129,11 +131,13 @@ const Catalog = (() => {
         .sort((a, b) => FORMAT_RANK.indexOf(a.format) - FORMAT_RANK.indexOf(b.format));
       // Prefer an MP4 (plays everywhere, including iPhones and TVs).
       const video = videos.find((f) => /\.(mp4|m4v)$/i.test(f.name)) || videos[0];
+      // Smaller file for data saver (phones on cell data, slow connections).
+      const small = files.find((f) => f.format === "512Kb MPEG4") || files.filter((f) => /\.mp4$/i.test(f.name) && f.size).sort((a, b) => a.size - b.size)[0];
 
       const images = files.filter((f) => IMAGE_FORMATS.includes(f.format) && !/\.thumbs\/|__ia_thumb|_thumb\./i.test(f.name))
         .sort((a, b) => Number(b.size || 0) - Number(a.size || 0));
       const result = video
-        ? { src: link(video.name), image: images[0] ? link(images[0].name) : "" }
+        ? { src: link(video.name), small: small && small.name !== video.name ? link(small.name) : "", image: images[0] ? link(images[0].name) : "" }
         : { broken: true };
       infoStore()[id] = result;
       saveInfoStore();
@@ -160,7 +164,7 @@ const Catalog = (() => {
     info,
     isBroken,
     markBroken(id) { infoStore()[id] = { broken: true }; infoMemo.delete(id); saveInfoStore(); },
-    async videoFile(id) { const i = await info(id); if (!i.src) throw new Error("no video file"); return i.src; },
+    async videoFile(id, { saver = false } = {}) { const i = await info(id); if (!i.src) throw new Error("no video file"); return (saver && i.small) || i.src; },
     shelf(shelf) { return search(shelf.q, shelf.dedupe ? 60 : 24).then((items) => (shelf.dedupe ? dedupe(items).slice(0, 18) : items).filter((it) => !isBroken(it.id))); },
     // Search titles within the shelves the profile is allowed to see.
     // Most-watched movies this week among the rows this profile can see.

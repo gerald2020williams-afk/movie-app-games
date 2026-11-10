@@ -139,15 +139,23 @@ const App = (() => {
     watchCards(container);
   }
 
+  // What this profile may see: no broken, hidden (by a parent), thumbs-down,
+  // or (with the safety filter on) stereotype/propaganda movies.
+  function allowed(items) {
+    const disliked = Library.disliked(profile.id);
+    const hidden = new Set(Library.hidden().map((x) => x.id));
+    const safe = Safety.filterOn(profile);
+    return items.filter((it) => !Catalog.isBroken(it.id) && !hidden.has(it.id) && !disliked.has(it.id) && !(safe && Safety.isUnsafe(it)));
+  }
+
   // Renders a shelf row and wires its cards. Returns a promise of the items.
   function fillShelf(section, shelf) {
     const row = section.querySelector(".row");
     row.innerHTML = skeletonRow();
     return Catalog.shelf(shelf).then((items) => {
       if (!section.isConnected) return items;
-      const disliked = Library.disliked(profile.id);
       items.forEach((it) => { if (!it.shelf) it.shelf = shelf.id; });
-      items = items.filter((it) => !disliked.has(it.id));
+      items = allowed(items);
       if (!items.length) { section.remove(); return items; }
       row.innerHTML = items.map((it) => cardHtml(it)).join("");
       wireCards(row, items);
@@ -165,13 +173,13 @@ const App = (() => {
   }
 
   function continueSection() {
-    const items = History.list(profile.id).filter((x) => !Catalog.isBroken(x.id));
+    const items = allowed(History.list(profile.id));
     if (!items.length) return "";
     return `<section class="shelf" id="continue"><h2>Continue Watching</h2><div class="row">${items.map((x) => cardHtml(x, x)).join("")}</div></section>`;
   }
 
   function myListSection() {
-    const items = Library.myList(profile.id).filter((x) => !Catalog.isBroken(x.id));
+    const items = allowed(Library.myList(profile.id));
     if (!items.length) return "";
     return `<section class="shelf" id="mylist"><h2>My List</h2><div class="row">${items.map((x) => cardHtml(x)).join("")}</div></section>`;
   }
@@ -181,8 +189,7 @@ const App = (() => {
     row.innerHTML = skeletonRow();
     return Catalog.top(profile.level).then((items) => {
       if (!section.isConnected) return;
-      const disliked = Library.disliked(profile.id);
-      items = items.filter((it) => !disliked.has(it.id));
+      items = allowed(items);
       if (items.length < 3) { section.remove(); return; }
       row.innerHTML = items.map((it, i) => cardHtml(it, null, i + 1)).join("");
       wireCards(row, items);
@@ -222,10 +229,14 @@ const App = (() => {
           <div class="btns center">
             <button class="f btn" id="manage">Manage profiles &amp; parent PIN</button>
             <button class="f btn" id="be-remote">Use this phone as a remote</button>
+            <button class="f btn" id="settings-btn">Settings</button>
+            <button class="f btn" id="about-btn">About &amp; credits</button>
             ${installButton()}
           </div>
         </section>`;
         el.querySelector("#be-remote").addEventListener("click", () => go(PhoneRemoteView()));
+        el.querySelector("#settings-btn").addEventListener("click", () => go(SettingsView()));
+        el.querySelector("#about-btn").addEventListener("click", () => go(AboutView()));
         wireInstall(el);
         el.querySelectorAll(".profile[data-id]").forEach((b) => b.addEventListener("click", () => {
           const p = Profiles.get(b.dataset.id);
@@ -318,6 +329,8 @@ const App = (() => {
             <button class="f btn" id="pin">${Profiles.hasPin() ? "Change parent PIN" : "Set up parent PIN"}</button>
             ${Profiles.hasPin() ? `<button class="f btn" id="nopin">Turn off parent PIN</button>` : ""}
             <button class="f btn" id="history">Watch history</button>
+            <button class="f btn" id="hidden-btn">Hidden movies</button>
+            <button class="f btn" id="sync-btn">Sync devices</button>
             ${installButton()}
             <button class="f btn" id="done">Done</button>
           </div>
@@ -328,6 +341,8 @@ const App = (() => {
           </div>
         </section>`;
         el.querySelector("#history").addEventListener("click", () => go(WatchHistoryView()));
+        el.querySelector("#hidden-btn").addEventListener("click", () => go(HiddenView()));
+        el.querySelector("#sync-btn").addEventListener("click", () => go(SyncView()));
         el.querySelectorAll("[data-look]").forEach((b) => b.addEventListener("click", () => {
           Theme.set(b.dataset.look);
           el.querySelectorAll("[data-look]").forEach((x) => x.classList.toggle("on", x === b));
@@ -363,6 +378,8 @@ const App = (() => {
               <label class="field"><span>Name</span><input class="f" id="name" maxlength="20" value="${escapeHtml(p.name)}" placeholder="Name" autocomplete="off"></label>
               <div class="field"><span>Age group</span><div class="chips">${AGE_GROUPS.map((g) => `<button class="f chip-btn${g.level === p.level ? " on" : ""}" data-level="${g.level}">${g.name}</button>`).join("")}</div></div>
               <div class="field"><span>Color</span><div class="chips">${PROFILE_COLORS.map((c) => `<button class="f swatch${c === p.color ? " on" : ""}" data-color="${c}" style="background:${c}" aria-label="Color ${c}"></button>`).join("")}</div></div>
+              <div class="field"><span>Safety filter</span><button class="f chip-btn toggle" id="safety"></button>
+                <small class="hint-text">Hides very old cartoons and films with racist stereotypes or wartime propaganda.</small></div>
               <div class="field"><span>Parent PIN</span><button class="f chip-btn toggle${p.locked ? " on" : ""}" id="locked">${p.locked ? "Needs parent PIN to open" : "Opens without a PIN"}</button></div>
               <div class="btns">
                 <button class="f btn gold" id="save">Save</button>
@@ -392,6 +409,14 @@ const App = (() => {
           el.querySelectorAll("[data-color]").forEach((x) => x.classList.toggle("on", x === b));
           preview();
         }));
+        const safetyBtn = el.querySelector("#safety");
+        const syncSafety = () => {
+          const on = Safety.filterOn(p);
+          safetyBtn.classList.toggle("on", on);
+          safetyBtn.textContent = on ? "On: hide stereotype and propaganda films" : "Off";
+        };
+        safetyBtn.addEventListener("click", () => { p.safety = !Safety.filterOn(p); syncSafety(); });
+        syncSafety();
         const lockBtn = el.querySelector("#locked");
         function syncLock() {
           lockBtn.classList.toggle("on", !!p.locked);
@@ -425,6 +450,161 @@ const App = (() => {
           });
         }
         SpatialNav.focus(existing ? el.querySelector("#save") : name);
+      },
+    };
+  }
+
+  function HiddenView() {
+    return {
+      tab: "profiles",
+      render(el) {
+        const draw = () => {
+          const list = Library.hidden();
+          el.querySelector("#hidden-list").innerHTML = list.length ? list.map((x) => `
+            <div class="log-row"><span class="thumb" style="background-image:url('${Catalog.image(x.id)}')"></span>
+              <span><b>${escapeHtml(x.title)}</b><small>Hidden ${new Date(x.at).toLocaleDateString()}</small></span>
+              <button class="f btn small" data-unhide="${escapeHtml(x.id)}">Show again</button></div>`).join("")
+            : `<div class="empty">No hidden movies. Use “Hide this movie” on any movie page.</div>`;
+          el.querySelectorAll("[data-unhide]").forEach((b) => b.addEventListener("click", () => { Library.unhide(b.dataset.unhide); toast("It will show again"); draw(); }));
+        };
+        el.innerHTML = `<section class="page narrow"><h1>Hidden movies</h1>
+          <p class="sub">These movies are hidden for every profile on this device (and on linked devices).</p>
+          <div class="log" id="hidden-list"></div>
+          <div class="btns"><button class="f btn" id="back">Back</button></div></section>`;
+        el.querySelector("#back").addEventListener("click", back);
+        draw();
+        SpatialNav.focus(el.querySelector("[data-unhide]") || el.querySelector("#back"));
+      },
+    };
+  }
+
+  function SyncView() {
+    let pairing = null, off = null;
+    return {
+      tab: "profiles",
+      render(el) {
+        const draw = () => {
+          const list = Sync.linked();
+          const n = Sync.connectedCount();
+          el.innerHTML = `<section class="page narrow">
+            <h1>Sync devices</h1>
+            <p class="sub">Link the family's TV, phones, tablets and computers so profiles, the parent PIN, My List, Continue Watching, likes, hidden movies and watch history match on all of them. Linked devices sync whenever two of them have the app open.</p>
+            <div class="sync-status"><b>This ${escapeHtml(Sync.deviceName().toLowerCase())}</b>
+              <span>${list.length ? `${list.length} linked device${list.length === 1 ? "" : "s"} · ${n ? `${n} connected now` : "none open right now"}${Sync.lastSync() ? ` · synced ${new Date(Sync.lastSync()).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}` : "Not linked yet"}</span></div>
+            ${list.length ? `<div class="log">${list.map((d) => `<div class="log-row compact"><span><b>${escapeHtml(d.name)}</b><small>Last seen ${new Date(d.seen).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</small></span><span class="mins">${n ? "" : ""}</span></div>`).join("")}</div>` : ""}
+            <div class="btns">
+              <button class="f btn gold" id="show-code">Show a code on this device</button>
+              <button class="f btn" id="enter-code">Enter a code from another device</button>
+              ${list.length ? `<button class="f btn" id="unlink">Unlink this device</button>` : ""}
+              <button class="f btn" id="back">Back</button>
+            </div>
+            <div id="pair-area"></div>
+          </section>`;
+          el.querySelector("#back").addEventListener("click", back);
+          el.querySelector("#show-code").addEventListener("click", async () => {
+            const area = el.querySelector("#pair-area");
+            area.innerHTML = `<p class="sub">Getting a code…</p>`;
+            try {
+              pairing = await Sync.showCode((name) => { toast(`Linked with ${name || "the other device"}`); draw(); });
+              area.innerHTML = `<p>On the other device, open <b>Manage profiles → Sync devices → Enter a code</b> and type:</p><div class="big-code">${pairing.code.replace(/(\d{3})(\d{3})/, "$1 $2")}</div>`;
+            } catch (_) { area.innerHTML = `<p class="sub">Couldn't get a code. Check the internet connection and try again.</p>`; }
+          });
+          el.querySelector("#enter-code").addEventListener("click", () => {
+            const area = el.querySelector("#pair-area");
+            area.innerHTML = `<form id="pair-form" class="pair-form"><input class="code-input" id="pair-code" inputmode="numeric" maxlength="7" placeholder="123 456" autocomplete="off"><button class="f btn gold">Link</button></form><p class="sub" id="pair-msg"></p>`;
+            const input = area.querySelector("#pair-code");
+            input.focus();
+            area.querySelector("#pair-form").addEventListener("submit", async (e) => {
+              e.preventDefault();
+              const code = input.value.replace(/\D/g, "");
+              const msg = area.querySelector("#pair-msg");
+              if (code.length !== 6) { msg.textContent = "Codes have 6 numbers."; return; }
+              msg.textContent = "Linking…";
+              try { const name = await Sync.enterCode(code); toast(`Linked with ${name || "the other device"}`); draw(); }
+              catch (_) { msg.textContent = "Couldn't link. Check the code, and that the other device still shows it."; }
+            });
+          });
+          const unlink = el.querySelector("#unlink");
+          if (unlink) {
+            let armed = false;
+            unlink.addEventListener("click", () => {
+              if (!armed) { armed = true; unlink.textContent = "Press again to unlink"; return; }
+              Sync.unlinkAll(); toast("This device is no longer linked"); draw();
+            });
+          }
+          SpatialNav.focus(el.querySelector("#show-code"));
+        };
+        off = Sync.onChange(() => { if (!pairing) draw(); });
+        draw();
+      },
+      destroy() { if (pairing) pairing.cancel(); if (off) off(); },
+    };
+  }
+
+  // Settings for this device: TV speed mode, cell data, data saver.
+  function SettingsView() {
+    return {
+      tab: "profiles",
+      render(el) {
+        const opt = (key, options) => options.map(([v, label]) => `<button class="f chip-btn${Settings.get(key) === v ? " on" : ""}" data-set="${key}" data-v="${v}">${label}</button>`).join("");
+        el.innerHTML = `<section class="page narrow">
+          <h1>Settings</h1>
+          <p class="sub">These settings are for this device only.</p>
+          <div class="field"><span>Speed mode</span><div class="chips">${opt("speed", [["auto", Settings.isTV ? "Automatic (on for this TV)" : "Automatic"], ["on", "On"], ["off", "Off"]])}</div>
+            <small class="hint-text">Turns off blurred backgrounds, previews and animations so slower TVs and older devices stay smooth.</small></div>
+          <div class="field"><span>Data saver</span><div class="chips">${opt("saver", [["off", "Off"], ["on", "Always on"]])}</div>
+            <small class="hint-text">Plays smaller video files. Uses about a quarter of the data, with a softer picture.</small></div>
+          <div class="field"><span>On cell data</span><div class="chips">${opt("cellData", [["ask", "Ask me"], ["saver", "Use data saver"], ["full", "Full quality"]])}</div>
+            <small class="hint-text">${Settings.canDetectCell ? "This device can tell when it's on cell data." : "This browser can't tell Wi-Fi from cell data, so use Data saver above when you're out."}</small></div>
+          <div class="btns"><button class="f btn" id="back">Back</button></div>
+        </section>`;
+        el.querySelectorAll("[data-set]").forEach((b) => b.addEventListener("click", () => {
+          Settings.set(b.dataset.set, b.dataset.v);
+          el.querySelectorAll(`[data-set="${b.dataset.set}"]`).forEach((x) => x.classList.toggle("on", x === b));
+          toast("Saved");
+        }));
+        el.querySelector("#back").addEventListener("click", back);
+        SpatialNav.focus(el.querySelector("[data-set]"));
+      },
+    };
+  }
+
+  function AboutView() {
+    const OPEN_MOVIES = [
+      ["Big Buck Bunny (2008)", "Blender Foundation", "CC BY 3.0", "https://creativecommons.org/licenses/by/3.0/"],
+      ["Elephants Dream (2006)", "Orange Open Movie Project Studios / Blender Foundation", "CC BY 2.5", "https://creativecommons.org/licenses/by/2.5/"],
+      ["Sintel (2010)", "Blender Foundation", "CC BY 3.0", "https://creativecommons.org/licenses/by/3.0/"],
+      ["Tears of Steel (2012)", "Blender Foundation", "CC BY 3.0", "https://creativecommons.org/licenses/by/3.0/"],
+      ["Caminandes (2013–2016)", "Blender Foundation / Pablo Vazquez", "CC BY", "https://creativecommons.org/licenses/by/4.0/"],
+      ["Cosmos Laundromat (2015)", "Blender Institute", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/"],
+      ["Agent 327: Operation Barbershop (2017)", "Blender Animation Studio", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/"],
+      ["Coffee Run (2020)", "Blender Studio", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/"],
+      ["Sprite Fright (2021)", "Blender Studio", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/"],
+      ["Wing It! (2023)", "Blender Studio", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/"],
+    ];
+    return {
+      tab: "profiles",
+      render(el) {
+        el.innerHTML = `<section class="page narrow about">
+          <h1>About &amp; credits</h1>
+          <p>Every movie in this app is free and legal to watch. Classic films and cartoons are in the public domain or shared by their owners, and are streamed from the <a href="https://archive.org" target="_blank" rel="noopener">Internet Archive</a>, a non-profit library. Each movie page credits its maker and license when the Internet Archive lists one.</p>
+          <h2 class="section-title">Open movies</h2>
+          <p class="sub">These newer films are shared under Creative Commons licenses that ask for credit to their makers.</p>
+          <ul class="credits">${OPEN_MOVIES.map(([t, by, lic, url]) => `<li><b>${t}</b> by ${by} · <a href="${url}" target="_blank" rel="noopener">${lic}</a></li>`).join("")}</ul>
+          <p class="sub">More about these films at <a href="https://studio.blender.org/films/" target="_blank" rel="noopener">studio.blender.org/films</a>.</p>
+          <h2 class="section-title">Made with</h2>
+          <ul class="credits">
+            <li>Fonts: Bricolage Grotesque and Figtree (SIL Open Font License), from Google Fonts</li>
+            <li>PeerJS (MIT License) for the phone remote and device sync</li>
+            <li>qrcode-generator by Kazuhiko Arase (MIT License) for QR codes</li>
+            <li>Google Cast for Chromecast</li>
+          </ul>
+          <h2 class="section-title">Privacy</h2>
+          <p>The app has no accounts and sends no personal data to us. Profiles, photos, My List, watch history and settings stay on your devices. Linked devices sync directly with each other. Movie searches go to the Internet Archive, and the phone remote and sync use the free PeerJS service only to connect your devices.</p>
+          <div class="btns"><button class="f btn" id="back">Back</button></div>
+        </section>`;
+        el.querySelector("#back").addEventListener("click", back);
+        SpatialNav.focus(el.querySelector("#back"));
       },
     };
   }
@@ -598,9 +778,9 @@ const App = (() => {
           </div>
         </section>`;
         const cont = el.querySelector("#continue");
-        if (cont) wireCards(cont, History.list(profile.id), { resume: true });
+        if (cont) wireCards(cont, allowed(History.list(profile.id)), { resume: true });
         const mine = el.querySelector("#mylist");
-        if (mine) wireCards(mine, Library.myList(profile.id));
+        if (mine) wireCards(mine, allowed(Library.myList(profile.id)));
         fillTop10(el.querySelector("#top10"));
         SpatialNav.focus(el.querySelector("#hero-play"));
 
@@ -628,6 +808,7 @@ const App = (() => {
         // A short silent preview plays behind the featured movie after a moment (big screens only).
         const heroVideo = el.querySelector("#hero-video");
         const previewsOn = () => matchMedia("(min-width: 761px)").matches
+          && !Settings.speedMode() && Settings.get("saver") !== "on" && !Settings.onCellData()
           && !matchMedia("(prefers-reduced-motion: reduce)").matches
           && !(navigator.connection && navigator.connection.saveData);
         const startPreview = (it) => {
@@ -707,8 +888,7 @@ const App = (() => {
           more.hidden = true;
           Catalog.browse({ level: profile.level, ...state }).then((found) => {
             if (!results.isConnected) return;
-            const disliked = Library.disliked(profile.id);
-            found = found.filter((x) => !disliked.has(x.id) && !items.some((y) => y.id === x.id));
+            found = allowed(found).filter((x) => !items.some((y) => y.id === x.id));
             found.forEach((x) => { if (!x.shelf) x.shelf = state.shelfId; });
             items = items.concat(found);
             if (!items.length) { results.innerHTML = `<div class="empty">No movies match these choices. Try another decade or category.</div>`; return; }
@@ -751,7 +931,7 @@ const App = (() => {
           timer = setTimeout(() => {
             results.innerHTML = `<div class="empty">Searching…</div>`;
             Catalog.find(term, profile.level).then((items) => {
-              items = items.filter((x) => !Catalog.isBroken(x.id));
+              items = allowed(items);
               if (!items.length) { results.innerHTML = `<div class="empty">No movies found for “${escapeHtml(term)}”.</div>`; return; }
               results.innerHTML = items.map((it) => cardHtml(it)).join("");
               wireCards(results, items);
@@ -781,6 +961,22 @@ const App = (() => {
     };
   }
 
+  // "By Blender Studio · CC BY 4.0 · From the Internet Archive" — credit the makers as their licenses ask.
+  function licenseName(url) {
+    const m = /creativecommons\.org\/(licenses|publicdomain)\/([a-z-]+)\/?([\d.]+)?/i.exec(url || "");
+    if (!m) return "";
+    if (m[1] === "publicdomain") return m[2] === "zero" ? "CC0 (public domain)" : "Public domain";
+    return `CC ${m[2].toUpperCase()}${m[3] ? " " + m[3] : ""}`;
+  }
+  function creditLine(item) {
+    const parts = [];
+    if (item.creator) parts.push(`By ${escapeHtml(item.creator)}`);
+    const lic = licenseName(item.license);
+    if (lic) parts.push(`<a href="${escapeHtml(item.license)}" target="_blank" rel="noopener">${lic}</a>`);
+    parts.push(`<a href="https://archive.org/details/${encodeURIComponent(item.id)}" target="_blank" rel="noopener">From the Internet Archive</a>`);
+    return parts.join(" · ");
+  }
+
   const THUMB_UP = `<svg viewBox="0 0 24 24" width="1.1em" height="1.1em" aria-hidden="true"><path fill="currentColor" d="M2 21h3V9H2v12zm20-11a2 2 0 0 0-2-2h-6.3l1-4.6v-.3c0-.4-.2-.8-.4-1.1L13.2 1 7.6 6.6C7.2 7 7 7.5 7 8v11a2 2 0 0 0 2 2h9c.8 0 1.5-.5 1.8-1.2l3-7.1c.1-.2.2-.5.2-.7v-2z"/></svg>`;
   const THUMB_DOWN = `<svg viewBox="0 0 24 24" width="1.1em" height="1.1em" aria-hidden="true" style="transform:rotate(180deg)"><path fill="currentColor" d="M2 21h3V9H2v12zm20-11a2 2 0 0 0-2-2h-6.3l1-4.6v-.3c0-.4-.2-.8-.4-1.1L13.2 1 7.6 6.6C7.2 7 7 7.5 7 8v11a2 2 0 0 0 2 2h9c.8 0 1.5-.5 1.8-1.2l3-7.1c.1-.2.2-.5.2-.7v-2z"/></svg>`;
 
@@ -791,7 +987,7 @@ const App = (() => {
       render(el) {
         const prog = History.get(profile.id, item.id);
         const shelf = SHELVES.find((x) => x.id === item.shelf);
-        const others = list.filter((x) => x.id !== item.id && !Catalog.isBroken(x.id)).slice(0, 18);
+        const others = allowed(list).filter((x) => x.id !== item.id).slice(0, 18);
         const rating = Library.rating(profile.id, item.id);
         el.innerHTML = `<section class="movie-page">
           <div class="mp-hero">
@@ -803,6 +999,7 @@ const App = (() => {
               <h1>${escapeHtml(item.title)}</h1>
               <div class="meta">${escapeHtml([item.year, item.runtime].filter(Boolean).join(" · "))}${prog ? ` · ${formatTime(prog.dur - prog.pos)} left` : ""}</div>
               <p>${escapeHtml(item.description || "A free movie from the Internet Archive.")}</p>
+              <p class="credit">${creditLine(item)}</p>
               <div class="btns">
                 ${prog ? `<button class="f btn gold" id="resume">▶ Resume ${formatTime(prog.pos)}</button><button class="f btn" id="play">Start over</button>`
                        : `<button class="f btn gold" id="play">▶ Play</button>`}
@@ -810,6 +1007,7 @@ const App = (() => {
                 <button class="f btn" id="mylist-btn">${Library.inMyList(profile.id, item.id) ? "✓ In My List" : "+ My List"}</button>
                 <button class="f btn icon${rating > 0 ? " on" : ""}" id="up" aria-label="I like this">${THUMB_UP}</button>
                 <button class="f btn icon${rating < 0 ? " on" : ""}" id="down" aria-label="Not for me">${THUMB_DOWN}</button>
+                <button class="f btn" id="hide">Hide this movie</button>
               </div>
               <p class="note" id="detail-note" hidden></p>
             </div>
@@ -831,6 +1029,11 @@ const App = (() => {
           up.classList.toggle("on", now > 0); down.classList.toggle("on", now < 0);
           toast(now > 0 ? "Thanks! You'll see more like this." : now < 0 ? "Got it. This movie is hidden for you." : "Rating removed");
         };
+        el.querySelector("#hide").addEventListener("click", () => {
+          const doHide = () => { Library.hide(item); History.remove(profile.id, item.id); toast("Hidden for every profile on this device"); };
+          if (!Profiles.hasPin()) { doHide(); back(); return; }
+          go(PinView({ mode: "check", title: "Parent PIN to hide this movie", onDone: () => { doHide(); stack.pop(); back(); } }));
+        });
         up.addEventListener("click", () => rate(1));
         down.addEventListener("click", () => rate(-1));
         // A silent preview clip plays in the picture.
@@ -861,6 +1064,8 @@ const App = (() => {
     };
   }
 
+  let sessionAnswer = null; // answer to "You're on cell data" for this visit
+
   // Plays a movie. `list` is the row it came from, used for "Up next".
   function PlayerView(item, list = [], { resume = true } = {}) {
     let saveTimer = 0, countdown = 0, video = null, info = null;
@@ -872,6 +1077,35 @@ const App = (() => {
       for (let k = i + 1; k < list.length; k++) if (!Catalog.isBroken(list[k].id)) return list[k];
       return null;
     };
+    // Lock screen, headphones, car and keyboard media keys.
+    function setupMediaSession(video, info) {
+      if (!("mediaSession" in navigator)) return;
+      const ms = navigator.mediaSession;
+      try {
+        ms.metadata = new MediaMetadata({ title: item.title, artist: item.creator || "Free movie", album: item.year ? String(item.year) : "",
+          artwork: [{ src: info.image || Catalog.image(item.id), sizes: "512x512" }] });
+        const set = (action, fn) => { try { ms.setActionHandler(action, fn); } catch (_) {} };
+        set("play", () => video.play());
+        set("pause", () => video.pause());
+        set("seekbackward", (d) => { video.currentTime = Math.max(0, video.currentTime - (d.seekOffset || 10)); });
+        set("seekforward", (d) => { video.currentTime = Math.min(video.duration || 0, video.currentTime + (d.seekOffset || 10)); });
+        set("seekto", (d) => { if (d.fastSeek && "fastSeek" in video) video.fastSeek(d.seekTime); else video.currentTime = d.seekTime; });
+        const next = nextItem();
+        set("nexttrack", next ? () => replace(PlayerView(next, list, { resume: true })) : null);
+        let last = 0;
+        video.addEventListener("timeupdate", () => {
+          if (Date.now() - last < 4000 || !video.duration || !isFinite(video.duration)) return;
+          last = Date.now();
+          try { ms.setPositionState({ duration: video.duration, playbackRate: video.playbackRate, position: Math.min(video.currentTime, video.duration) }); } catch (_) {}
+        });
+        video.addEventListener("play", () => { ms.playbackState = "playing"; });
+        video.addEventListener("pause", () => { ms.playbackState = "paused"; });
+      } catch (_) {}
+    }
+    function clearMediaSession() {
+      if (!("mediaSession" in navigator)) return;
+      try { navigator.mediaSession.metadata = null; ["play", "pause", "seekbackward", "seekforward", "seekto", "nexttrack"].forEach((a) => navigator.mediaSession.setActionHandler(a, null)); } catch (_) {}
+    }
     function fallback(wrap) {
       // Use the Internet Archive's own player if the file won't play here.
       if (!wrap.isConnected) return;
@@ -908,6 +1142,7 @@ const App = (() => {
             <video class="f" id="video" controls playsinline x-webkit-airplay="allow" preload="auto" poster="${Catalog.image(item.id)}"></video>
             <div class="loading" id="loading">Loading movie…</div>
             <div class="casting" id="casting" hidden></div>
+            <div class="data-ask" id="data-ask" hidden></div>
             <div class="upnext" id="upnext" hidden></div>
           </div>
         </section>`;
@@ -1016,19 +1251,45 @@ const App = (() => {
           else if (video.remote) video.remote.prompt().catch(() => {});
         });
 
-        Catalog.info(item.id).then((found) => {
+        // Pick full quality or data saver. On cell data, ask first (once per visit) unless told otherwise.
+        const chooseQuality = () => new Promise((resolve) => {
+          if (Settings.get("saver") === "on") return resolve(true);
+          if (!Settings.onCellData()) return resolve(false);
+          const pref = Settings.get("cellData");
+          if (pref === "saver") return resolve(true);
+          if (pref === "full" || sessionAnswer !== null) return resolve(pref === "full" ? false : sessionAnswer);
+          const box = el.querySelector("#data-ask");
+          box.innerHTML = `<b>You're on cell data</b><span>A full-quality movie can use about 1 GB an hour. Data saver uses about a quarter of that.</span>
+            <div class="btns center"><button class="f btn gold" data-q="saver">Use data saver</button><button class="f btn" data-q="full">Full quality</button><button class="f btn" data-q="always">Always use data saver</button></div>`;
+          box.hidden = false;
+          el.querySelector("#loading").hidden = true;
+          box.querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => {
+            if (b.dataset.q === "always") Settings.set("cellData", "saver");
+            sessionAnswer = b.dataset.q !== "full";
+            box.hidden = true;
+            resolve(sessionAnswer);
+          }));
+          SpatialNav.focus(box.querySelector("[data-q]"));
+        });
+
+        Catalog.info(item.id).then(async (found) => {
           info = found;
           if (!video.isConnected) return;
           if (!info.src) { fallback(wrap); return; }
           if (info.image) video.poster = info.image;
-          video.src = info.src;
           // Already casting (for example the next movie in a row): send this one to the TV too.
-          if (Cast.session()) { castNow(prog ? prog.pos : 0); return; }
+          if (Cast.session()) { video.src = info.src; castNow(prog ? prog.pos : 0); return; }
+          const saver = await chooseQuality();
+          if (!video.isConnected) return;
+          video.src = (saver && info.small) || info.src;
+          if (saver && info.small) toast("Data saver is on");
           if (prog) {
             video.addEventListener("loadedmetadata", () => { video.currentTime = prog.pos; }, { once: true });
             toast(`Resuming at ${formatTime(prog.pos)}`);
           }
+          setupMediaSession(video, info);
           video.play().catch(() => toast("Press OK or tap the movie to start"));
+          SpatialNav.focus(video);
         }).catch(() => {
           const l = el.querySelector("#loading");
           if (l) l.innerHTML = `Couldn't load the movie. Check your internet connection. <button class="f btn small" id="retry">Try again</button>`;
@@ -1075,6 +1336,7 @@ const App = (() => {
       },
       destroy() {
         clearInterval(countdown);
+        clearMediaSession();
         // A movie on the TV keeps playing after leaving this screen; stop listening to it.
         remoteOffs.forEach((off) => off());
         if (castOff) castOff();
@@ -1128,6 +1390,20 @@ const App = (() => {
 
   updateWho();
   Cast.load();
+  Sync.start().catch(() => {});
+  // When another device sends changes, refresh what's on screen (but never interrupt a movie).
+  Sync.onChange((kind) => {
+    if (kind !== "changed") return;
+    Theme.apply();
+    if (profile) { const p = Profiles.get(profile.id); if (p) { profile = p; updateWho(); } }
+    if (current && ["home", "profiles"].includes(current.tab) && !document.querySelector("input:focus") && !stack.length) {
+      const name = current.tab === "home" ? "home" : "profiles";
+      if (name === "home" ? !!profile : true) openTab(name);
+    }
+  });
+  // A friendly message instead of a silent failure if something unexpected breaks.
+  window.addEventListener("error", (e) => { if (e.message && !/Script error/i.test(e.message)) { console.error(e.error || e.message); toast("Something went wrong. If it keeps happening, reload the app."); } });
+  window.addEventListener("unhandledrejection", (e) => { console.error(e.reason); });
   document.getElementById("remote-btn").addEventListener("click", () => go(RemoteHostView()));
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 

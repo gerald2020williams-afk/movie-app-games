@@ -89,5 +89,5 @@ const Remote = (() => {
 
   function linkFor(code) { return `${location.origin}${location.pathname}?remote=${code}`; }
 
-  return { startHost, join, qrSvg, linkFor, get host() { return host; } };
+  return { startHost, join, qrSvg, linkFor, loadPeer, get host() { return host; } };
 })();

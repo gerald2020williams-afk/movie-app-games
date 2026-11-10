@@ -24,6 +24,9 @@ const DEFAULT_PROFILES = [
 ];
 const MAX_PROFILES = 8;
 
+// Rows for younger profiles leave out movies the Internet Archive tags as propaganda or racist.
+const KID_SAFE = ' AND NOT subject:(propaganda OR racist OR racism OR "racial stereotypes" OR stereotypes OR blackface OR minstrel OR "censored eleven" OR "world war ii")';
+
 // A shelf is visible to a profile when shelf.level <= profile.level.
 
 // Movie shelves pulled live from the Internet Archive (free, legal, public domain films).
@@ -32,27 +35,27 @@ const SHELVES = [
   // Newer, modern-looking movies: free "open movies" made by the Blender Studio and others,
   // shared under Creative Commons so anyone can watch them for free.
   { id: "new-family", title: "New Free Movies", level: 0, featured: true, dedupe: true,
-    q: "mediatype:(movies) AND title:(\"Big Buck Bunny\" OR \"Caminandes\" OR \"Wing It\" OR \"Coffee Run\" OR \"Agent 327\") AND (subject:(blender OR \"open movie\" OR animation) OR creator:(blender))" },
+    q: "mediatype:(movies) AND title:(\"Big Buck Bunny\" OR \"Caminandes\" OR \"Wing It\" OR \"Coffee Run\" OR \"Agent 327\") AND (subject:(blender OR \"open movie\" OR animation) OR creator:(blender))" + KID_SAFE },
   { id: "new-teens", title: "New Free Movies for Teens", level: 2, featured: true, dedupe: true,
     q: "mediatype:(movies) AND title:(\"Sintel\" OR \"Tears of Steel\" OR \"Cosmos Laundromat\" OR \"Sprite Fright\" OR \"Elephants Dream\") AND (subject:(blender OR \"open movie\" OR animation OR \"science fiction\") OR creator:(blender))" },
   { id: "cartoons", title: "Classic Cartoons", level: 0,
-    q: "collection:(classic_cartoons) AND mediatype:(movies)" },
+    q: "collection:(classic_cartoons) AND mediatype:(movies)" + KID_SAFE },
   { id: "animation", title: "More Animation", level: 0,
-    q: "collection:(animationandcartoons) AND mediatype:(movies) AND NOT subject:(horror OR war OR propaganda)" },
+    q: "collection:(animationandcartoons) AND mediatype:(movies) AND NOT subject:(horror OR war OR propaganda)" + KID_SAFE },
   { id: "comedy", title: "Comedy Classics", level: 1,
-    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(comedy) AND NOT subject:(horror OR crime)" },
+    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(comedy) AND NOT subject:(horror OR crime)" + KID_SAFE },
   { id: "silent", title: "Silent Film Fun", level: 1,
-    q: "collection:(silent_films) AND mediatype:(movies) AND subject:(comedy)" },
+    q: "collection:(silent_films) AND mediatype:(movies) AND subject:(comedy)" + KID_SAFE },
   { id: "holiday", title: "Holiday Favorites", level: 0,
-    q: "collection:(classic_cartoons OR animationandcartoons OR feature_films) AND mediatype:(movies) AND subject:(christmas OR holiday OR thanksgiving OR easter OR halloween) AND NOT subject:(horror OR crime OR noir)" },
+    q: "collection:(classic_cartoons OR animationandcartoons OR feature_films) AND mediatype:(movies) AND subject:(christmas OR holiday OR thanksgiving OR easter OR halloween) AND NOT subject:(horror OR crime OR noir)" + KID_SAFE },
   { id: "nature", title: "Nature & Animals", level: 0,
-    q: "collection:(prelinger OR feature_films OR ephemera) AND mediatype:(movies) AND subject:(animals OR wildlife OR nature OR zoo OR birds OR ocean) AND NOT subject:(hunting OR war OR horror)" },
+    q: "collection:(prelinger OR feature_films OR ephemera) AND mediatype:(movies) AND subject:(animals OR wildlife OR nature OR zoo OR birds OR ocean) AND NOT subject:(hunting OR war OR horror)" + KID_SAFE },
   { id: "musicals", title: "Musicals", level: 1,
-    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(musical OR musicals) AND NOT subject:(horror OR crime)" },
+    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(musical OR musicals) AND NOT subject:(horror OR crime)" + KID_SAFE },
   { id: "westerns", title: "Westerns", level: 1,
-    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(western OR westerns OR cowboy)" },
+    q: "collection:(feature_films) AND mediatype:(movies) AND subject:(western OR westerns OR cowboy)" + KID_SAFE },
   { id: "documentaries", title: "Documentaries", level: 1,
-    q: "collection:(feature_films OR prelinger OR documentaryandshortfilms) AND mediatype:(movies) AND subject:(documentary OR documentaries) AND NOT subject:(war OR propaganda OR crime)" },
+    q: "collection:(feature_films OR prelinger OR documentaryandshortfilms) AND mediatype:(movies) AND subject:(documentary OR documentaries) AND NOT subject:(war OR propaganda OR crime)" + KID_SAFE },
   { id: "adventure", title: "Adventure", level: 2,
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(adventure OR action) AND NOT subject:(horror)" },
   { id: "scifi", title: "Sci-Fi", level: 2,
