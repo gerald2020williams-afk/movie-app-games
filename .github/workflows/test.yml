@@ -1,0 +1,31 @@
+# Runs every test on each update, so problems are caught before they reach the live site.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["catalog.json"]
+  pull_request: {}
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install the test browser
+        run: |
+          npm install --no-save playwright@1.47.2 esbuild@0.23.1
+          npx playwright install --with-deps chromium
+      - name: Check the bundled files are up to date
+        run: |
+          node scripts/build.js
+          git diff --exit-code -- dist || (echo "Run 'npm run build' and commit the dist folder." && exit 1)
+      - name: Run all tests
+        run: node tests/run-all.js
+      - name: Stress test
+        run: VIEWERS=15 node tests/stress.js

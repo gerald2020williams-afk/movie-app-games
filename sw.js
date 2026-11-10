@@ -1,12 +1,9 @@
 // Offline support: keep a copy of the app's own files so it opens even with a weak connection.
 // Movies, pictures and movie lists come from the Internet Archive and are not stored here.
-const CACHE = "movies-app-v5";
+const CACHE = "movies-app-v6";
 const FILES = [
-  "./", "index.html", "styles.css", "manifest.webmanifest", "icon.svg",
-  "icons/icon-192.png", "icons/icon-512.png", "icons/icon-180.png",
-  "js/data.js", "js/input.js", "js/catalog.js", "js/profiles.js", "js/history.js",
-  "js/settings.js", "js/cast.js", "js/library.js", "js/theme.js", "js/remote.js", "js/sync.js",
-  "js/app/core.js", "js/app/family.js", "js/app/remote-screens.js", "js/app/browse.js", "js/app/player.js", "js/app/live.js", "js/app/start.js", "blocklist.json",
+  "./", "index.html", "dist/app.min.js", "dist/styles.min.css", "manifest.webmanifest", "icon.svg",
+  "icons/icon-192.png", "icons/icon-512.png", "icons/icon-180.png", "blocklist.json",
 ];
 
 self.addEventListener("install", (e) => {

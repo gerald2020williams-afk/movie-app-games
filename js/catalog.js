@@ -165,6 +165,7 @@ const Catalog = (() => {
 
   function info(id, { wanted } = {}) {
     if (infoMemo.has(id)) return infoMemo.get(id);
+    if (shared && shared.info && shared.info[id] && !isBroken(id)) { const p = Promise.resolve(shared.info[id]); infoMemo.set(id, p); return p; }
     const cached = infoStore()[id];
     if (cached) { const p = Promise.resolve(cached); infoMemo.set(id, p); return p; }
     const p = limited(async () => {
@@ -199,6 +200,16 @@ const Catalog = (() => {
     p.catch(() => infoMemo.delete(id)); // network trouble: try again next time
     return p;
   }
+
+  // ----- Shared catalog: rows, Top 10 and movie details built once a day by a GitHub job -----
+  // (scripts/build-catalog.js). Everyone loads this one file from the app's own site, which is
+  // much faster than asking the Internet Archive, and keeps the Archive's load tiny as viewers grow.
+  let shared = null;
+  const CATALOG_MAX_AGE = 4 * 864e5; // older than 4 days: ignore it and ask the Archive directly
+  const catalogReady = fetch("catalog.json")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((c) => { if (c && c.built && Date.now() - Date.parse(c.built) < CATALOG_MAX_AGE) shared = c; })
+    .catch(() => {});
 
   // ----- Blocklist: movies taken down (copyright requests, problems). Edit blocklist.json on GitHub. -----
   let blocked = { ids: new Set(), titles: [] };
@@ -255,14 +266,17 @@ const Catalog = (() => {
     async videoFile(id, { saver = false } = {}) { const i = await info(id); if (!i.src) throw new Error("no video file"); return (saver && i.small) || i.src; },
     // A row: only trusted collections, copyright and quality rules, no duplicate copies.
     async shelf(shelf) {
-      await blocklistReady;
-      const items = await search(shelf.q, 50);
+      await Promise.all([blocklistReady, catalogReady]);
+      const items = shared && shared.shelves && shared.shelves[shelf.id] ? shared.shelves[shelf.id] : await search(shelf.q, 50);
       return dedupe(items.filter((it) => passesRules(it, shelf))).slice(0, 24);
     },
-    passesRules, minutes, blocklistReady,
+    passesRules, minutes, blocklistReady, catalogReady,
+    usingSharedCatalog: () => !!shared,
     // Search titles within the shelves the profile is allowed to see.
     // Most-watched movies this week among the rows this profile can see.
-    top(level) {
+    async top(level) {
+      await Promise.all([blocklistReady, catalogReady]);
+      if (shared && shared.top && shared.top[level] && shared.top[level].length) return dedupe(shared.top[level].filter((it) => passesRules(it))).slice(0, 10);
       const allowed = SHELVES.filter((s) => s.level <= level).map((s) => `(${s.q})`).join(" OR ");
       return search(`(${allowed})`, 40, { sort: "week desc", ttl: 6 * 3600 * 1000 })
         .then((items) => dedupe(items.filter((it) => passesRules(it))).slice(0, 10));

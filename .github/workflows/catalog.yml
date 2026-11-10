@@ -1,0 +1,39 @@
+# Builds catalog.json once a day (and when the movie rows change), so every viewer loads one
+# shared file instead of each asking the Internet Archive. Free on public GitHub repositories.
+name: Daily movie catalog
+
+on:
+  schedule:
+    - cron: "17 9 * * *"   # every day at 9:17 UTC
+  workflow_dispatch: {}     # "Run workflow" button on the Actions tab
+  push:
+    branches: [main]
+    paths: ["js/data.js", "js/catalog.js", "blocklist.json", "scripts/build-catalog.js"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: catalog
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build catalog.json from the Internet Archive
+        run: node scripts/build-catalog.js
+      - name: Save it to the site
+        run: |
+          git config user.name "catalog-bot"
+          git config user.email "catalog-bot@users.noreply.github.com"
+          git add catalog.json
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Update movie catalog"
+          git pull --rebase origin main
+          git push

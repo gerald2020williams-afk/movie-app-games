@@ -12,10 +12,12 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Movies">
+  <link rel="preconnect" href="https://archive.org">
+  <link rel="preload" href="catalog.json" as="fetch" crossorigin>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="dist/styles.min.css">
 </head>
 <body>
   <header class="nav" id="nav">
@@ -36,23 +38,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="js/data.js"></script>
-  <script src="js/settings.js"></script>
-  <script src="js/input.js"></script>
-  <script src="js/catalog.js"></script>
-  <script src="js/profiles.js"></script>
-  <script src="js/history.js"></script>
-  <script src="js/cast.js"></script>
-  <script src="js/library.js"></script>
-  <script src="js/theme.js"></script>
-  <script src="js/remote.js"></script>
-  <script src="js/sync.js"></script>
-  <script src="js/app/core.js"></script>
-  <script src="js/app/family.js"></script>
-  <script src="js/app/remote-screens.js"></script>
-  <script src="js/app/browse.js"></script>
-  <script src="js/app/player.js"></script>
-  <script src="js/app/live.js"></script>
-  <script src="js/app/start.js"></script>
+  <!-- All scripts, bundled and shrunk by scripts/build.js (sources are in js/). -->
+  <script src="dist/app.min.js"></script>
 </body>
 </html>
