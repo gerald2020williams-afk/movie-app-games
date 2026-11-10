@@ -2,7 +2,7 @@
 
 const Catalog = (() => {
   const API = "https://archive.org/advancedsearch.php";
-  const FIELDS = ["identifier", "title", "year", "description", "runtime", "creator", "licenseurl"];
+  const FIELDS = ["identifier", "title", "year", "description", "runtime", "creator", "licenseurl", "downloads", "week"];
   // Only ask for movies that have a video file the app can play.
   const PLAYABLE = ' AND format:("h.264" OR "h.264 HD" OR "h.264 IA" OR MPEG4 OR "512Kb MPEG4")';
   const SEARCH_TTL = 12 * 60 * 60 * 1000; // movie lists are kept for 12 hours
@@ -86,15 +86,30 @@ const Catalog = (() => {
       .filter((d) => d.identifier && d.title)
       .map((d) => ({
         id: d.identifier,
-        title: first(d.title),
+        title: cleanTitle(first(d.title), d.year),
         year: d.year ? String(first(d.year)).slice(0, 4) : "",
         runtime: d.runtime ? String(first(d.runtime)) : "",
         description: cleanText(Array.isArray(d.description) ? d.description.join(" ") : d.description || "").slice(0, 600),
         creator: d.creator ? String(first(d.creator)).slice(0, 80) : "",
         license: d.licenseurl ? String(first(d.licenseurl)) : "",
+        popular: Number(first(d.week)) || 0,
+        downloads: Number(first(d.downloads)) || 0,
       }));
   }
   const first = (v) => (Array.isArray(v) ? v[0] : v);
+
+  // Tidy upload titles: stray quotes, the year repeated in the title, extra spaces.
+  function cleanTitle(raw, year) {
+    let t = String(raw || "").replace(/[\u201c\u201d]/g, '"').replace(/\s+/g, " ").trim();
+    const y = year ? String(first(year)).slice(0, 4) : "";
+    if (y) t = t.replace(new RegExp(`\\s*[\\(\\[]${y}[\\)\\]]`, "g"), "").trim();
+    // Labels about the upload, not the film: "(complete & clearer)", "[HD]", "(1080p)", "(restored)".
+    t = t.replace(/\s*[\(\[][^\)\]]*\b(complete|clearer|restored|remastered|hd|1080p|720p|480p|4k|full movie|colori[sz]ed|widescreen|dvd|vhs)\b[^\)\]]*[\)\]]/gi, "").trim();
+    // 'Charlie Chaplin's " The Pawnshop' -> 'Charlie Chaplin's The Pawnshop'; drop unmatched quotes
+    if ((t.match(/"/g) || []).length % 2 === 1) t = t.replace(/"/g, "");
+    t = t.replace(/"\s+/g, '"').replace(/\s+"/g, ' "').replace(/^"(.*)"$/, "$1").replace(/\s+/g, " ").trim();
+    return t || String(raw || "");
+  }
 
   const inflight = new Map();
   function search(q, rows = 24, opts = {}) {
@@ -251,7 +266,12 @@ const Catalog = (() => {
   function dedupe(items) {
     const seen = new Set();
     return items.filter((it) => {
-      const key = it.title.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, "").replace(/[^a-z0-9]+/g, " ").trim().split(" ").slice(0, 4).join(" ");
+      // "Big Buck Bunny - FULL HD 60 FPS" and "Big Buck Bunny 1280x720 Stereo" are the same film.
+      const key = it.title.toLowerCase()
+        .replace(/\(.*?\)|\[.*?\]/g, " ")
+        .replace(/\b(\d{3,4}x\d{3,4}|\d{3,4}p|\d+\s*fps|full\s*hd|uhd|4k|hd|sd|stereo|mono|surround|complete|clearer|restored|remastered|colorized|colourized|version|edition|uncut|widescreen|dvd|vhs|bluray|blu-ray|mp4|avi|mpeg)\b/g, " ")
+        .replace(/\s[-–|]\s.*$/, " ")
+        .replace(/[^a-z0-9]+/g, " ").trim().split(" ").slice(0, 5).join(" ");
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -268,18 +288,29 @@ const Catalog = (() => {
     async shelf(shelf) {
       await Promise.all([blocklistReady, catalogReady]);
       const items = shared && shared.shelves && shared.shelves[shelf.id] ? shared.shelves[shelf.id] : await search(shelf.q, 50);
-      return dedupe(items.filter((it) => passesRules(it, shelf))).slice(0, 24);
+      // General rows skip movies that already have their own collection row (e.g. Popeye),
+      // so the same cartoons don't fill several rows.
+      let inCollections = new Set();
+      if (!shelf.collection && !shelf.featured && shared && shared.shelves) {
+        SHELVES.filter((s) => s.collection && s.level <= shelf.level).forEach((s) => (shared.shelves[s.id] || []).forEach((x) => inCollections.add(x.id)));
+      }
+      const kept = dedupe(items.filter((it) => passesRules(it, shelf)));
+      const varied = kept.filter((it) => !inCollections.has(it.id));
+      return (varied.length >= 8 ? varied : kept).slice(0, 24);
     },
-    passesRules, minutes, blocklistReady, catalogReady,
+    passesRules, minutes, blocklistReady, catalogReady, cleanTitle, dedupe,
     usingSharedCatalog: () => !!shared,
     // Search titles within the shelves the profile is allowed to see.
     // Most-watched movies this week among the rows this profile can see.
+    // Top 10: the most-watched movies this week among the rows this profile can see.
     async top(level) {
       await Promise.all([blocklistReady, catalogReady]);
       if (shared && shared.top && shared.top[level] && shared.top[level].length) return dedupe(shared.top[level].filter((it) => passesRules(it))).slice(0, 10);
-      const allowed = SHELVES.filter((s) => s.level <= level).map((s) => `(${s.q})`).join(" OR ");
-      return search(`(${allowed})`, 40, { sort: "week desc", ttl: 6 * 3600 * 1000 })
-        .then((items) => dedupe(items.filter((it) => passesRules(it))).slice(0, 10));
+      const rows = await Promise.all(SHELVES.filter((s) => s.level <= level).map((s) => this.shelf(s).catch(() => [])));
+      const seen = new Set();
+      const all = rows.flat().filter((it) => (seen.has(it.id) ? false : seen.add(it.id)));
+      all.sort((a, b) => (b.popular || 0) - (a.popular || 0) || (b.downloads || 0) - (a.downloads || 0));
+      return dedupe(all).slice(0, 10);
     },
     // Browse page: category, decade, color, and sort order.
     browse({ level, shelfId = "", decade = "", color = "", sort = "downloads desc", page = 1 }) {

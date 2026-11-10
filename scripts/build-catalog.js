@@ -48,10 +48,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     } catch (e) { console.log(`row ${shelf.id}: failed (${e.message}) — the app will fetch it live`); }
     await sleep(400);
   }
+  // Top 10 per age group, ranked by this week's views across that group's rows (no extra requests).
   for (const level of [0, 1, 2, 3]) {
-    try { out.top[level] = (await Catalog.top(level)).map((it) => ({ ...it, description: (it.description || "").slice(0, 320) })); }
-    catch (e) { console.log(`top 10 for level ${level}: failed`); }
-    await sleep(400);
+    try { out.top[level] = (await Catalog.top(level)).map((it) => ({ ...it, description: (it.description || "").slice(0, 320) })); console.log(`top 10 for level ${level}: ${out.top[level].length}`); }
+    catch (e) { console.log(`top 10 for level ${level}: failed (${e.message})`); }
   }
   // Each movie's video, picture and subtitle files (4 at a time).
   const ids = [...new Set([...Object.values(out.shelves), ...Object.values(out.top)].flat().map((it) => it.id))];

@@ -96,7 +96,7 @@ const SHELVES = [
   { id: "scifi", minMinutes: 40, title: "Sci-Fi", level: 2,
     q: "collection:(feature_films OR scifi_horror) AND mediatype:(movies) AND subject:(\"science fiction\" OR sci-fi OR scifi OR space) AND NOT subject:(horror)" },
   { id: "noir", minMinutes: 40, title: "Film Noir & Mystery", level: 3,
-    q: "collection:(film_noir) AND mediatype:(movies)" },
+    q: "collection:(feature_films OR film_noir) AND mediatype:(movies) AND subject:(noir OR \"film noir\" OR mystery OR detective)" },
   { id: "horror", minMinutes: 40, title: "Horror Classics", level: 3,
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(horror)" },
 ];
