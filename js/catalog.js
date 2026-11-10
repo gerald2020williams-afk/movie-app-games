@@ -269,7 +269,7 @@ const Catalog = (() => {
       // "Big Buck Bunny - FULL HD 60 FPS" and "Big Buck Bunny 1280x720 Stereo" are the same film.
       const key = it.title.toLowerCase()
         .replace(/\(.*?\)|\[.*?\]/g, " ")
-        .replace(/\b(\d{3,4}x\d{3,4}|\d{3,4}p|\d+\s*fps|full\s*hd|uhd|4k|hd|sd|stereo|mono|surround|complete|clearer|restored|remastered|colorized|colourized|version|edition|uncut|widescreen|dvd|vhs|bluray|blu-ray|mp4|avi|mpeg)\b/g, " ")
+        .replace(/\b(\d{3,4}x\d{3,4}|\d{3,4}p|\d+\s*fps|full\s*hd|uhd|4k|hd|sd|stereo|mono|surround|complete|clearer|restored|remastered|colorized|colourized|version|edition|uncut|widescreen|dvd|vhs|bluray|blu-ray|mp4|avi|mpeg|x264|x265|h264|h265|hevc|blender|animated|animation|short|film|movie|full|official|open)\b/g, " ")
         .replace(/\s[-–|]\s.*$/, " ")
         .replace(/[^a-z0-9]+/g, " ").trim().split(" ").slice(0, 5).join(" ");
       if (seen.has(key)) return false;
