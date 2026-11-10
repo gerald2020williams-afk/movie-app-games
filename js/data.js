@@ -28,21 +28,56 @@ const MAX_PROFILES = 8;
 const KID_SAFE = ' AND NOT subject:(propaganda OR racist OR racism OR "racial stereotypes" OR stereotypes OR blackface OR minstrel OR "censored eleven" OR "world war ii")';
 
 // A shelf is visible to a profile when shelf.level <= profile.level.
+// Search for an exact list of titles within trusted collections.
+function titles(list, collections) {
+  return `mediatype:(movies) AND collection:(${collections}) AND title:(${list.map((t) => `"${t.replace(/"/g, "")}"`).join(" OR ")})`;
+}
+
+// ----- Copyright safety -----
+// Only these Internet Archive collections are used: they're curated libraries of public-domain
+// films, classic cartoons and films their owners shared. Open user uploads are never searched.
+const TRUSTED_COLLECTIONS = ["feature_films", "classic_cartoons", "animationandcartoons", "silent_films", "film_noir", "prelinger", "ephemera", "documentaryandshortfilms", "scifi_horror"];
+// Films made after this year are only shown if they carry an open license (like Creative Commons).
+// Older films in the collections above are public domain or were never renewed.
+const COPYRIGHT_CUTOFF_YEAR = 1977;
+
+// ----- Quality rules -----
+// Titles with these words are usually clips, trailers or test uploads, not full movies.
+const JUNK_TITLE = /\b(trailer|teaser|promo|preview|clip|clips|excerpt|sample|test upload|commercial|tv spot|blooper|reel|outtakes?)\b/i;
+const MIN_MINUTES = 2; // nothing shorter than this, for any row
 
 // Movie shelves pulled live from the Internet Archive (free, legal, public domain films).
 // `q` is an Internet Archive search query.
 const SHELVES = [
   // Newer, modern-looking movies: free "open movies" made by the Blender Studio and others,
   // shared under Creative Commons so anyone can watch them for free.
-  { id: "new-family", title: "New Free Movies", level: 0, featured: true, dedupe: true,
+  { id: "new-family", title: "New Free Movies", level: 0, featured: true, licensed: true,
     q: "mediatype:(movies) AND title:(\"Big Buck Bunny\" OR \"Caminandes\" OR \"Wing It\" OR \"Coffee Run\" OR \"Agent 327\") AND (subject:(blender OR \"open movie\" OR animation) OR creator:(blender))" + KID_SAFE },
-  { id: "new-teens", title: "New Free Movies for Teens", level: 2, featured: true, dedupe: true,
+  { id: "new-teens", title: "New Free Movies for Teens", level: 2, featured: true, licensed: true,
     q: "mediatype:(movies) AND title:(\"Sintel\" OR \"Tears of Steel\" OR \"Cosmos Laundromat\" OR \"Sprite Fright\" OR \"Elephants Dream\") AND (subject:(blender OR \"open movie\" OR animation OR \"science fiction\") OR creator:(blender))" },
+  // ----- Hand-picked collections (well-known public-domain films) -----
+  { id: "family-night", title: "Family Movie Night", level: 0, collection: true,
+    q: titles(["Gulliver's Travels", "Jack and the Beanstalk", "The Little Princess", "Rudolph the Red-Nosed Reindeer", "Mr. Bug Goes to Town", "Hoppity Goes to Town", "The Adventures of Tom Sawyer", "Sherlock Jr.", "Santa Claus Conquers the Martians", "Little Lord Fauntleroy"], "feature_films OR classic_cartoons OR animationandcartoons OR silent_films") + KID_SAFE },
+  { id: "chaplin", title: "Charlie Chaplin", level: 0, collection: true,
+    q: "mediatype:(movies) AND collection:(feature_films OR silent_films) AND (title:(chaplin) OR subject:(\"charlie chaplin\") OR creator:(chaplin))" + KID_SAFE },
+  { id: "keaton", title: "Buster Keaton", level: 0, collection: true,
+    q: "mediatype:(movies) AND collection:(feature_films OR silent_films) AND (title:(keaton) OR subject:(\"buster keaton\") OR creator:(keaton))" + KID_SAFE },
+  { id: "popeye", title: "Popeye & Friends", level: 0, collection: true,
+    q: "mediatype:(movies) AND collection:(classic_cartoons OR animationandcartoons) AND title:(popeye)" + KID_SAFE },
+  { id: "superman", title: "Superman Cartoons (1940s)", level: 0, collection: true,
+    q: "mediatype:(movies) AND collection:(classic_cartoons OR animationandcartoons) AND title:(superman)" + KID_SAFE },
+  { id: "golden-comedy", title: "Golden Age Comedy", level: 1, collection: true, minMinutes: 40,
+    q: titles(["His Girl Friday", "My Man Godfrey", "Meet John Doe", "Nothing Sacred", "The Inspector General", "Road to Bali", "Royal Wedding", "Charade"], "feature_films") },
+  { id: "classic-scifi", title: "Classic Sci-Fi", level: 2, collection: true, minMinutes: 40,
+    q: titles(["Plan 9 from Outer Space", "Teenagers from Outer Space", "Robot Monster", "Killers from Space", "The Phantom Planet", "Lost Continent", "Rocketship X-M", "The Day the Earth Stood Still"], "feature_films OR scifi_horror") },
+  { id: "noir-essentials", title: "Film Noir Essentials", level: 3, collection: true, minMinutes: 40,
+    q: titles(["D.O.A.", "Detour", "The Stranger", "Scarlet Street", "Kansas City Confidential", "The Hitch-Hiker", "Quicksand", "Too Late for Tears"], "film_noir OR feature_films") },
+
   { id: "cartoons", title: "Classic Cartoons", level: 0,
     q: "collection:(classic_cartoons) AND mediatype:(movies)" + KID_SAFE },
   { id: "animation", title: "More Animation", level: 0,
     q: "collection:(animationandcartoons) AND mediatype:(movies) AND NOT subject:(horror OR war OR propaganda)" + KID_SAFE },
-  { id: "comedy", title: "Comedy Classics", level: 1,
+  { id: "comedy", minMinutes: 40, title: "Comedy Classics", level: 1,
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(comedy) AND NOT subject:(horror OR crime)" + KID_SAFE },
   { id: "silent", title: "Silent Film Fun", level: 1,
     q: "collection:(silent_films) AND mediatype:(movies) AND subject:(comedy)" + KID_SAFE },
@@ -50,19 +85,19 @@ const SHELVES = [
     q: "collection:(classic_cartoons OR animationandcartoons OR feature_films) AND mediatype:(movies) AND subject:(christmas OR holiday OR thanksgiving OR easter OR halloween) AND NOT subject:(horror OR crime OR noir)" + KID_SAFE },
   { id: "nature", title: "Nature & Animals", level: 0,
     q: "collection:(prelinger OR feature_films OR ephemera) AND mediatype:(movies) AND subject:(animals OR wildlife OR nature OR zoo OR birds OR ocean) AND NOT subject:(hunting OR war OR horror)" + KID_SAFE },
-  { id: "musicals", title: "Musicals", level: 1,
+  { id: "musicals", minMinutes: 40, title: "Musicals", level: 1,
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(musical OR musicals) AND NOT subject:(horror OR crime)" + KID_SAFE },
-  { id: "westerns", title: "Westerns", level: 1,
+  { id: "westerns", minMinutes: 40, title: "Westerns", level: 1,
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(western OR westerns OR cowboy)" + KID_SAFE },
   { id: "documentaries", title: "Documentaries", level: 1,
     q: "collection:(feature_films OR prelinger OR documentaryandshortfilms) AND mediatype:(movies) AND subject:(documentary OR documentaries) AND NOT subject:(war OR propaganda OR crime)" + KID_SAFE },
-  { id: "adventure", title: "Adventure", level: 2,
+  { id: "adventure", minMinutes: 40, title: "Adventure", level: 2,
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(adventure OR action) AND NOT subject:(horror)" },
-  { id: "scifi", title: "Sci-Fi", level: 2,
+  { id: "scifi", minMinutes: 40, title: "Sci-Fi", level: 2,
     q: "collection:(feature_films OR scifi_horror) AND mediatype:(movies) AND subject:(\"science fiction\" OR sci-fi OR scifi OR space) AND NOT subject:(horror)" },
-  { id: "noir", title: "Film Noir & Mystery", level: 3,
+  { id: "noir", minMinutes: 40, title: "Film Noir & Mystery", level: 3,
     q: "collection:(film_noir) AND mediatype:(movies)" },
-  { id: "horror", title: "Horror Classics", level: 3,
+  { id: "horror", minMinutes: 40, title: "Horror Classics", level: 3,
     q: "collection:(feature_films) AND mediatype:(movies) AND subject:(horror)" },
 ];
 

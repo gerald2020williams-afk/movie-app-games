@@ -386,6 +386,8 @@ function AboutView() {
           <li>qrcode-generator by Kazuhiko Arase (MIT License) for QR codes</li>
           <li>Google Cast for Chromecast</li>
         </ul>
+        <h2 class="section-title">Copyright and takedown requests</h2>
+        <p>Only curated Internet Archive collections of public-domain and openly licensed films are used, and films made after ${COPYRIGHT_CUTOFF_YEAR} are only shown when they carry an open license. If you own the rights to a film shown here, use <b>Report a problem</b> on its page, or open an issue at <a href="https://github.com/gerald2020williams-afk/movie-app-games/issues" target="_blank" rel="noopener">the app's GitHub page</a>. Reported films are removed from the app. You can also contact the <a href="https://help.archive.org/help/rights/" target="_blank" rel="noopener">Internet Archive</a> directly.</p>
         <h2 class="section-title">Privacy</h2>
         <p>The app has no accounts and sends no personal data to us. Profiles, photos, My List, watch history and settings stay on your devices. Linked devices sync directly with each other. Movie searches go to the Internet Archive, and the phone remote and sync use the free PeerJS service only to connect your devices.</p>
         <div class="btns"><button class="f btn" id="back">Back</button></div>

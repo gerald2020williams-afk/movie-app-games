@@ -81,7 +81,7 @@ function shelvesFor(level) {
   // then rows made for this age group, then the rest.
   const scores = profile ? Library.shelfScores(profile.id) : {};
   const holiday = Theme.featuredShelf();
-  const top = (s) => (s.featured || s.id === holiday ? 0 : 1);
+  const top = (s) => (s.featured || s.id === holiday ? 0 : s.collection ? 1 : 2);
   const own = (s) => (s.level === level ? 0 : 1);
   return SHELVES.filter((s) => s.level <= level).map((s, i) => ({ s, i }))
     .sort((a, b) => top(a.s) - top(b.s) || (scores[b.s.id] || 0) - (scores[a.s.id] || 0) || own(a.s) - own(b.s) || a.i - b.i)

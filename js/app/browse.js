@@ -239,6 +239,7 @@ function DetailView(item, list = []) {
               <button class="f btn icon${rating > 0 ? " on" : ""}" id="up" aria-label="I like this">${THUMB_UP}</button>
               <button class="f btn icon${rating < 0 ? " on" : ""}" id="down" aria-label="Not for me">${THUMB_DOWN}</button>
               <button class="f btn" id="hide">Hide this movie</button>
+              <button class="f btn" id="report">Report a problem</button>
             </div>
             <p class="note" id="detail-note" hidden></p>
           </div>
@@ -265,6 +266,7 @@ function DetailView(item, list = []) {
         if (!Profiles.hasPin()) { doHide(); back(); return; }
         go(PinView({ mode: "check", title: "Parent PIN to hide this movie", onDone: () => { doHide(); stack.pop(); back(); } }));
       });
+      el.querySelector("#report").addEventListener("click", () => go(ReportView(item)));
       up.addEventListener("click", () => rate(1));
       down.addEventListener("click", () => rate(-1));
       // A silent preview clip plays in the picture.
@@ -292,5 +294,51 @@ function DetailView(item, list = []) {
       }).catch(() => {});
     },
     destroy() { if (previewEl) { previewEl.pause(); previewEl.removeAttribute("src"); previewEl.load(); } },
+  };
+}
+
+// Report a problem with a movie: copyright, offensive content, wrong or broken.
+// Reports go to the app's public GitHub page as an issue (needs a free GitHub account),
+// and copyright or offensive reports also hide the movie on this device right away.
+const REPORT_URL = "https://github.com/gerald2020williams-afk/movie-app-games/issues/new";
+function ReportView(item) {
+  const reasons = [
+    ["copyright", "I own this movie / copyright", true],
+    ["offensive", "Offensive or not right for kids", true],
+    ["broken", "It won't play or looks broken", false],
+    ["wrong", "Wrong title, picture or details", false],
+  ];
+  let reason = "";
+  return {
+    tab: current ? current.tab : "home",
+    render(el) {
+      el.innerHTML = `<section class="page narrow">
+        <h1>Report a problem</h1>
+        <p class="sub">${escapeHtml(item.title)}</p>
+        <div class="chips">${reasons.map(([k, label]) => `<button class="f chip-btn" data-r="${k}">${label}</button>`).join("")}</div>
+        <label class="field"><span>Details (optional)</span><textarea id="details" rows="3" maxlength="600" placeholder="Anything that helps us fix it"></textarea></label>
+        <div class="btns"><button class="f btn gold" id="send" disabled>Send report</button><button class="f btn" id="cancel">Cancel</button></div>
+        <p class="sub small">Sending opens the app's GitHub page in a new tab with the report filled in. Copyright owners can also contact the <a href="https://help.archive.org/help/rights/" target="_blank" rel="noopener">Internet Archive</a>, which hosts the movie.</p>
+      </section>`;
+      el.querySelectorAll("[data-r]").forEach((b) => b.addEventListener("click", () => {
+        reason = b.dataset.r;
+        el.querySelectorAll("[data-r]").forEach((x) => x.classList.toggle("on", x === b));
+        el.querySelector("#send").disabled = false;
+      }));
+      el.querySelector("#cancel").addEventListener("click", back);
+      el.querySelector("#send").addEventListener("click", () => {
+        const [, label, hideNow] = reasons.find((r) => r[0] === reason);
+        const details = el.querySelector("#details").value.trim();
+        const body = `**Movie:** ${item.title}${item.year ? ` (${item.year})` : ""}\n**Internet Archive ID:** ${item.id}\n**Link:** https://archive.org/details/${item.id}\n**Problem:** ${label}\n\n${details}`;
+        const url = `${REPORT_URL}?title=${encodeURIComponent(`Report: ${item.title} (${label})`)}&body=${encodeURIComponent(body)}`;
+        const a = document.createElement("a");
+        a.href = url; a.target = "_blank"; a.rel = "noopener";
+        document.body.appendChild(a); a.click(); a.remove();
+        if (hideNow) { Library.hide(item); History.remove(profile.id, item.id); }
+        toast(hideNow ? "Thanks. The movie is hidden here while it's checked." : "Thanks for the report");
+        back(); if (hideNow) back();
+      });
+      SpatialNav.focus(el.querySelector("[data-r]"));
+    },
   };
 }

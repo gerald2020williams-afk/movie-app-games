@@ -193,6 +193,42 @@ const Catalog = (() => {
     return p;
   }
 
+  // ----- Blocklist: movies taken down (copyright requests, problems). Edit blocklist.json on GitHub. -----
+  let blocked = { ids: new Set(), titles: [] };
+  const blocklistReady = fetch("blocklist.json", { cache: "no-cache" })
+    .then((r) => (r.ok ? r.json() : {}))
+    .then((b) => { blocked = { ids: new Set(b.ids || []), titles: (b.titles || []).map((t) => String(t).toLowerCase()) }; })
+    .catch(() => {});
+  const isBlocked = (it) => blocked.ids.has(it.id) || blocked.titles.some((t) => it.title.toLowerCase().includes(t));
+
+  // Length like "1:23:45", "00:07:23", "95 min", "7 minutes", "1h 30m" → minutes (or null if unknown).
+  function minutes(runtime) {
+    const r = String(runtime || "").trim().toLowerCase();
+    if (!r) return null;
+    let m = /^(\d+):(\d{1,2}):(\d{1,2})/.exec(r);
+    if (m) return +m[1] * 60 + +m[2] + +m[3] / 60;
+    m = /^(\d+):(\d{1,2})$/.exec(r);
+    if (m) return +m[1] + +m[2] / 60;
+    m = /(\d+)\s*h/.exec(r); const h = m ? +m[1] : 0;
+    m = /(\d+)\s*m/.exec(r); const mm = m ? +m[1] : 0;
+    if (h || mm) return h * 60 + mm;
+    m = /^(\d+(\.\d+)?)$/.exec(r);
+    return m ? +m[1] : null;
+  }
+  const isOpenLicense = (url) => /creativecommons\.org|publicdomain/i.test(url || "");
+
+  // Copyright and quality rules every list goes through.
+  function passesRules(it, shelf = {}) {
+    if (isBroken(it.id) || isBlocked(it)) return false;
+    if (JUNK_TITLE.test(it.title)) return false;
+    // Copyright: newer films need an open license, unless the row is a known open-movie row.
+    const year = Number(it.year) || 0;
+    if (!shelf.licensed && year > COPYRIGHT_CUTOFF_YEAR && !isOpenLicense(it.license)) return false;
+    const mins = minutes(it.runtime);
+    if (mins !== null && mins < Math.max(MIN_MINUTES, shelf.minMinutes || 0)) return false;
+    return true;
+  }
+
   // Many uploads of the same film exist; keep the most popular copy of each title.
   function dedupe(items) {
     const seen = new Set();
@@ -210,13 +246,19 @@ const Catalog = (() => {
     isBroken,
     markBroken(id) { infoStore()[id] = { broken: true }; infoMemo.delete(id); saveInfoStore(); },
     async videoFile(id, { saver = false } = {}) { const i = await info(id); if (!i.src) throw new Error("no video file"); return (saver && i.small) || i.src; },
-    shelf(shelf) { return search(shelf.q, shelf.dedupe ? 60 : 24).then((items) => (shelf.dedupe ? dedupe(items).slice(0, 18) : items).filter((it) => !isBroken(it.id))); },
+    // A row: only trusted collections, copyright and quality rules, no duplicate copies.
+    async shelf(shelf) {
+      await blocklistReady;
+      const items = await search(shelf.q, 50);
+      return dedupe(items.filter((it) => passesRules(it, shelf))).slice(0, 24);
+    },
+    passesRules, minutes, blocklistReady,
     // Search titles within the shelves the profile is allowed to see.
     // Most-watched movies this week among the rows this profile can see.
     top(level) {
       const allowed = SHELVES.filter((s) => s.level <= level).map((s) => `(${s.q})`).join(" OR ");
       return search(`(${allowed})`, 40, { sort: "week desc", ttl: 6 * 3600 * 1000 })
-        .then((items) => dedupe(items).filter((it) => !isBroken(it.id)).slice(0, 10));
+        .then((items) => dedupe(items.filter((it) => passesRules(it))).slice(0, 10));
     },
     // Browse page: category, decade, color, and sort order.
     browse({ level, shelfId = "", decade = "", color = "", sort = "downloads desc", page = 1 }) {
@@ -225,13 +267,13 @@ const Catalog = (() => {
       if (decade) q += ` AND year:[${decade} TO ${Number(decade) + 9}]`;
       if (color === "color") q += ` AND color:(color OR colour)`;
       if (color === "bw") q += ` AND color:("b&w" OR bw OR "black and white" OR "black & white")`;
-      return search(q, 36, { sort, page }).then((items) => items.filter((it) => !isBroken(it.id)));
+      return search(q, 36, { sort, page }).then((items) => dedupe(items.filter((it) => passesRules(it))));
     },
     find(term, level) {
       const allowed = SHELVES.filter((s) => s.level <= level).map((s) => `(${s.q})`).join(" OR ");
       const safe = term.replace(/[^\w\s'-]/g, " ").trim();
       if (!safe) return Promise.resolve([]);
-      return search(`title:(${safe}) AND (${allowed})`, 36);
+      return search(`title:(${safe}) AND (${allowed})`, 36).then((items) => dedupe(items.filter((it) => passesRules(it))));
     },
     image(id) { return `https://archive.org/services/img/${encodeURIComponent(id)}`; },
     embed(id) { return `https://archive.org/embed/${encodeURIComponent(id)}?autoplay=1`; },
