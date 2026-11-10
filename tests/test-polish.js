@@ -55,7 +55,7 @@ const out = require('path').join(__dirname, 'screenshots'); require('fs').mkdirS
 
   // open detail of New Movie 1 from the New row
   await p.click('[data-shelf="new-family"] .card[data-id="New0"]'); await p.waitForTimeout(500);
-  console.log('detail buttons:', await p.$$eval('.detail .btn', (b) => b.map((x) => x.textContent)));
+  console.log('detail buttons:', await p.$$eval('.mp-copy .btn', (b) => b.map((x) => x.textContent)));
   await p.screenshot({ path: out + '/po-3-detail.png' });
   await p.click('#resume'); await p.waitForTimeout(800);
   await p.waitForTimeout(1500);

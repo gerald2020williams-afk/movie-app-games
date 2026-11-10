@@ -1102,6 +1102,17 @@ const App = (() => {
         video.addEventListener("pause", () => { ms.playbackState = "paused"; });
       } catch (_) {}
     }
+    // Keep the screen (TV, tablet, phone) from dimming or sleeping while a movie plays.
+    let wakeLock = null;
+    async function keepAwake(on) {
+      try {
+        if (on && !wakeLock && "wakeLock" in navigator && document.visibilityState === "visible") {
+          wakeLock = await navigator.wakeLock.request("screen");
+          wakeLock.addEventListener("release", () => { wakeLock = null; });
+        } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+      } catch (_) { wakeLock = null; }
+    }
+    const onVisible = () => { if (document.visibilityState === "visible" && video && !video.paused) keepAwake(true); };
     function clearMediaSession() {
       if (!("mediaSession" in navigator)) return;
       try { navigator.mediaSession.metadata = null; ["play", "pause", "seekbackward", "seekforward", "seekto", "nexttrack"].forEach((a) => navigator.mediaSession.setActionHandler(a, null)); } catch (_) {}
@@ -1319,6 +1330,10 @@ const App = (() => {
           }
         });
         video.addEventListener("pause", saveProgress);
+        video.addEventListener("playing", () => keepAwake(true));
+        video.addEventListener("pause", () => keepAwake(false));
+        video.addEventListener("ended", () => keepAwake(false));
+        document.addEventListener("visibilitychange", onVisible);
         video.addEventListener("ended", () => {
           History.remove(profile.id, item.id);
           if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -1337,6 +1352,8 @@ const App = (() => {
       destroy() {
         clearInterval(countdown);
         clearMediaSession();
+        keepAwake(false);
+        document.removeEventListener("visibilitychange", onVisible);
         // A movie on the TV keeps playing after leaving this screen; stop listening to it.
         remoteOffs.forEach((off) => off());
         if (castOff) castOff();

@@ -22,6 +22,7 @@ A TV-style app for the whole family: watch free classic movies and cartoons, pla
 - **Sync devices.** Link the family's devices with a 6-digit code. Profiles, the parent PIN, My List, Continue Watching, likes, hidden movies, watch history and the app look stay matched whenever two linked devices are open at the same time. They connect directly; nothing is stored on a server.
 - **Speed mode** for smart TVs and slower devices (automatic on TVs): no blur, previews or animations.
 - **Cell data.** On Android phones the app notices cell data and asks before playing: data saver (smaller file) or full quality. Data saver can also be always on.
+- **Screen stays awake** while a movie plays (TVs, tablets, phones), and can sleep again when it ends.
 - **Lock-screen controls.** Play, pause, skip and next movie from the lock screen, headphones, car or keyboard media keys.
 - **Movie previews.** On bigger screens the featured movie plays a short silent preview after a moment.
 - **Categories.** New Free Movies, Classic Cartoons, Holiday Favorites, Nature & Animals, Comedy, Silent Films, Musicals, Westerns, Documentaries, Adventure, Sci-Fi, Film Noir and Horror (by age group).
