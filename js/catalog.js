@@ -25,10 +25,10 @@ const Catalog = (() => {
     }
   }
 
-  function url(q, rows) {
-    const p = new URLSearchParams({ q, rows: String(rows), page: "1", output: "json" });
+  function url(q, rows, sort = "downloads desc", page = 1) {
+    const p = new URLSearchParams({ q, rows: String(rows), page: String(page), output: "json" });
     FIELDS.forEach((f) => p.append("fl[]", f));
-    p.append("sort[]", "downloads desc");
+    p.append("sort[]", sort);
     return `${API}?${p}`;
   }
 
@@ -46,8 +46,8 @@ const Catalog = (() => {
     });
   }
 
-  async function fetchSearch(q, rows) {
-    const src = url(q, rows);
+  async function fetchSearch(q, rows, sort, page) {
+    const src = url(q, rows, sort, page);
     let data;
     try {
       const res = await fetch(src);
@@ -68,17 +68,17 @@ const Catalog = (() => {
   }
   const first = (v) => (Array.isArray(v) ? v[0] : v);
 
-  async function search(q, rows = 24) {
-    const key = "ia:" + q + "|" + rows;
+  async function search(q, rows = 24, { sort = "downloads desc", page = 1, ttl = SEARCH_TTL } = {}) {
+    const key = "ia:" + q + "|" + rows + "|" + sort + "|" + page;
     if (memo.has(key)) return memo.get(key);
     const cached = load(key);
     if (cached) { memo.set(key, cached); return cached; }
-    let items = await fetchSearch(q + PLAYABLE, rows);
+    let items = await fetchSearch(q + PLAYABLE, rows, sort, page);
     // If the playable filter finds nothing, try without it (broken ones get hidden later).
-    if (!items.length) items = await fetchSearch(q, rows);
+    if (!items.length && page === 1) items = await fetchSearch(q, rows, sort, page);
     items = items.filter((it) => !isBroken(it.id));
     memo.set(key, items);
-    store(key, items, SEARCH_TTL);
+    store(key, items, ttl);
     return items;
   }
 
@@ -163,6 +163,21 @@ const Catalog = (() => {
     async videoFile(id) { const i = await info(id); if (!i.src) throw new Error("no video file"); return i.src; },
     shelf(shelf) { return search(shelf.q, shelf.dedupe ? 60 : 24).then((items) => (shelf.dedupe ? dedupe(items).slice(0, 18) : items).filter((it) => !isBroken(it.id))); },
     // Search titles within the shelves the profile is allowed to see.
+    // Most-watched movies this week among the rows this profile can see.
+    top(level) {
+      const allowed = SHELVES.filter((s) => s.level <= level).map((s) => `(${s.q})`).join(" OR ");
+      return search(`(${allowed})`, 40, { sort: "week desc", ttl: 6 * 3600 * 1000 })
+        .then((items) => dedupe(items).filter((it) => !isBroken(it.id)).slice(0, 10));
+    },
+    // Browse page: category, decade, color, and sort order.
+    browse({ level, shelfId = "", decade = "", color = "", sort = "downloads desc", page = 1 }) {
+      const shelves = SHELVES.filter((s) => s.level <= level && (!shelfId || s.id === shelfId));
+      let q = `(${shelves.map((s) => `(${s.q})`).join(" OR ")})`;
+      if (decade) q += ` AND year:[${decade} TO ${Number(decade) + 9}]`;
+      if (color === "color") q += ` AND color:(color OR colour)`;
+      if (color === "bw") q += ` AND color:("b&w" OR bw OR "black and white" OR "black & white")`;
+      return search(q, 36, { sort, page }).then((items) => items.filter((it) => !isBroken(it.id)));
+    },
     find(term, level) {
       const allowed = SHELVES.filter((s) => s.level <= level).map((s) => `(${s.q})`).join(" OR ");
       const safe = term.replace(/[^\w\s'-]/g, " ").trim();

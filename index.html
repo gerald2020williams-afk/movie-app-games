@@ -7,6 +7,11 @@
   <title>Movies &amp; Games</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Movies">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
@@ -22,6 +27,7 @@
     </nav>
     <span class="spacer"></span>
     <span class="pad" id="pad" hidden><b></b>Controller connected</span>
+    <button class="f btn nav-btn" id="remote-btn">Phone remote</button>
     <button class="f who" data-go="profiles">Watching as <b id="who-name">—</b><span class="avatar" id="who-avatar">?</span></button>
   </header>
 
@@ -35,6 +41,9 @@
   <script src="js/profiles.js"></script>
   <script src="js/history.js"></script>
   <script src="js/cast.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/remote.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

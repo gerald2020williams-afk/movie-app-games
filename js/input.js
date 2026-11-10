@@ -97,6 +97,8 @@ const Input = (() => {
   return {
     on(fn) { listeners.push(fn); return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); }; },
     isHeld(dir) { return held.has(dir) || padHeld.has(dir); },
+    // Button presses from the phone remote behave like controller buttons.
+    press(name) { emitPad(name); },
     get padConnected() { return padConnected; },
   };
 })();
