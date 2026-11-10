@@ -8,6 +8,7 @@ A TV-style app for the whole family: watch free classic movies and cartoons, pla
 - **Continue Watching.** Each profile picks up where it left off, with a progress bar on the movie.
 - **Up next.** When a movie ends, the next one in that row starts after a 10-second countdown (Play now or Cancel).
 - **Polished rows.** Only movies with a playable video are shown, sharper pictures load in as you scroll, and movie lists are saved on the device for 12 hours so the app opens fast.
+- **Cast to TV.** A Cast to TV button appears in the player when a Chromecast (Chrome on Android, Windows, Mac or ChromeOS) or AirPlay TV (iPhone, iPad, Mac Safari) is on the same Wi-Fi. The phone then becomes the remote: pause, skip 10 seconds, stop casting. Continue Watching and Up next keep working while casting.
 - **Movie previews.** On bigger screens the featured movie plays a short silent preview after a moment.
 - **Categories.** New Free Movies, Classic Cartoons, Holiday Favorites, Nature & Animals, Comedy, Silent Films, Musicals, Westerns, Documentaries, Adventure, Sci-Fi, Film Noir and Horror (by age group).
 - **Controller, remote or keyboard.** Arrow keys or D-pad to move, A / Enter to choose, B / Escape to go back. While a movie plays: OK pauses, left/right skip 10 seconds, Y goes full screen.
@@ -37,6 +38,7 @@ then visit `http://localhost:8000`. To use it on a TV, host the folder (for exam
 - `js/catalog.js`: Internet Archive search and playback links
 - `js/profiles.js`: family profiles and the parent PIN
 - `js/history.js`: Continue Watching progress for each profile
+- `js/cast.js`: Chromecast and AirPlay
 - `js/trivia.js`: the trivia game
 - `js/space-dodge.js`: the Space Dodge arcade game
 - `js/app.js`: screens and navigation

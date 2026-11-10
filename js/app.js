@@ -552,7 +552,9 @@ const App = (() => {
 
   // Plays a movie. `list` is the row it came from, used for "Up next".
   function PlayerView(item, list = [], { resume = true } = {}) {
-    let saveTimer = 0, countdown = 0, video = null;
+    let saveTimer = 0, countdown = 0, video = null, info = null;
+    let casting = false, remote = null, remoteOffs = [], castOff = null, lastRemote = { pos: 0, dur: 0 };
+    let airplayAvailable = false, remotePlaybackAvailable = false;
     const saveProgress = () => { if (video && video.currentTime) History.save(profile.id, item, video.currentTime, video.duration); };
     const nextItem = () => {
       const i = list.findIndex((x) => x.id === item.id);
@@ -589,10 +591,12 @@ const App = (() => {
       render(el) {
         el.innerHTML = `<section class="player">
           <div class="player-bar"><button class="f btn" id="back">← Back</button><h1>${escapeHtml(item.title)}</h1>
+            <button class="f btn" id="cast" hidden>Cast to TV</button>
             <button class="f btn" id="full">⛶ Full screen</button></div>
           <div class="screen-wrap" id="wrap">
-            <video class="f" id="video" controls playsinline preload="auto" poster="${Catalog.image(item.id)}"></video>
+            <video class="f" id="video" controls playsinline x-webkit-airplay="allow" preload="auto" poster="${Catalog.image(item.id)}"></video>
             <div class="loading" id="loading">Loading movie…</div>
+            <div class="casting" id="casting" hidden></div>
             <div class="upnext" id="upnext" hidden></div>
           </div>
         </section>`;
@@ -603,11 +607,108 @@ const App = (() => {
         SpatialNav.focus(video);
 
         const prog = resume ? History.get(profile.id, item.id) : null;
-        Catalog.info(item.id).then((info) => {
+
+        // ----- Cast to TV -----
+        const castBtn = el.querySelector("#cast");
+        const castBox = el.querySelector("#casting");
+        const updateCastButton = () => {
+          const can = Cast.chromecastAvailable() || airplayAvailable || remotePlaybackAvailable;
+          castBtn.hidden = !can && !casting;
+          castBtn.textContent = casting ? "Stop casting" : "Cast to TV";
+          el.querySelector("#full").hidden = casting;
+        };
+        castOff = Cast.onChange(updateCastButton);
+        Cast.watchAirplay(video, (ok) => { airplayAvailable = ok; updateCastButton(); });
+        if (!Cast.chromecastAvailable()) Cast.watchRemotePlayback(video, (ok) => { remotePlaybackAvailable = ok; updateCastButton(); });
+        updateCastButton();
+
+        const drawCasting = () => {
+          const p = remote ? remote.player : null;
+          const paused = p ? p.isPaused : false;
+          castBox.querySelector("#cast-time").textContent = p && p.duration ? `${formatTime(p.currentTime)} / ${formatTime(p.duration)}` : "Starting…";
+          castBox.querySelector("#cast-pp").textContent = paused ? "▶ Play" : "❚❚ Pause";
+        };
+        const enterCasting = () => {
+          casting = true;
+          video.pause();
+          video.hidden = true;
+          el.querySelector("#loading").hidden = true;
+          castBox.innerHTML = `
+            <small>Playing on</small><b>${escapeHtml(Cast.deviceName())}</b>
+            <span class="cast-title">${escapeHtml(item.title)}</span>
+            <span id="cast-time">Starting…</span>
+            <div class="btns center">
+              <button class="f btn" id="cast-back">⟲ 10s</button>
+              <button class="f btn gold" id="cast-pp">❚❚ Pause</button>
+              <button class="f btn" id="cast-fwd">10s ⟳</button>
+              <button class="f btn" id="cast-stop">Stop casting</button>
+            </div>`;
+          castBox.hidden = false;
+          remote = Cast.remote();
+          castBox.querySelector("#cast-pp").addEventListener("click", () => remote && remote.playPause());
+          castBox.querySelector("#cast-back").addEventListener("click", () => remote && remote.seekBy(-10));
+          castBox.querySelector("#cast-fwd").addEventListener("click", () => remote && remote.seekBy(10));
+          castBox.querySelector("#cast-stop").addEventListener("click", () => Cast.stop());
+          SpatialNav.focus(castBox.querySelector("#cast-pp"));
+          let saved = 0;
+          if (remote) {
+            remoteOffs.push(remote.on("CURRENT_TIME_CHANGED", () => {
+              const p = remote.player;
+              if (p.duration) lastRemote = { pos: p.currentTime, dur: p.duration };
+              drawCasting();
+              if (Date.now() - saved > 5000 && p.duration) { saved = Date.now(); History.save(profile.id, item, p.currentTime, p.duration); }
+            }));
+            remoteOffs.push(remote.on("IS_PAUSED_CHANGED", drawCasting));
+            remoteOffs.push(remote.on("PLAYER_STATE_CHANGED", () => {
+              // The movie finished on the TV: offer the next one.
+              const p = remote.player;
+              if (p.playerState === "IDLE" && lastRemote.dur && lastRemote.dur - lastRemote.pos < 5) {
+                History.remove(profile.id, item.id);
+                const next = nextItem();
+                if (next) showUpNext(el, next);
+              }
+            }));
+            remoteOffs.push(remote.on("IS_CONNECTED_CHANGED", () => { if (!remote.player.isConnected) exitCasting(); }));
+          }
+          updateCastButton();
+          toast(`Playing on ${Cast.deviceName()}`);
+        };
+        const exitCasting = () => {
+          if (!casting) return;
+          casting = false;
+          remoteOffs.forEach((off) => off()); remoteOffs = [];
+          castBox.hidden = true;
+          video.hidden = false;
+          if (lastRemote.pos) { History.save(profile.id, item, lastRemote.pos, lastRemote.dur); video.currentTime = lastRemote.pos; }
+          SpatialNav.focus(video);
+          updateCastButton();
+          toast("Back on this screen");
+        };
+        const castNow = async (startAt) => {
+          try {
+            await Cast.play({ src: info.src, title: item.title, image: info.image || Catalog.image(item.id), startAt });
+            enterCasting();
+          } catch (e) {
+            const cancelled = e === "cancel" || (e && e.code === "cancel") || String(e && (e.code || e)).includes("cancel");
+            if (!cancelled) toast("Couldn't connect to the TV. Make sure it's on the same Wi-Fi.");
+          }
+        };
+        castBtn.addEventListener("click", () => {
+          if (casting) { Cast.stop(); return; }
+          if (!info || !info.src) { toast("This movie can't be cast"); return; }
+          if (Cast.chromecastAvailable()) castNow(video.currentTime || (prog ? prog.pos : 0));
+          else if (airplayAvailable && Cast.airplaySupported(video)) video.webkitShowPlaybackTargetPicker();
+          else if (video.remote) video.remote.prompt().catch(() => {});
+        });
+
+        Catalog.info(item.id).then((found) => {
+          info = found;
           if (!video.isConnected) return;
           if (!info.src) { fallback(wrap); return; }
           if (info.image) video.poster = info.image;
           video.src = info.src;
+          // Already casting (for example the next movie in a row): send this one to the TV too.
+          if (Cast.session()) { castNow(prog ? prog.pos : 0); return; }
           if (prog) {
             video.addEventListener("loadedmetadata", () => { video.currentTime = prog.pos; }, { once: true });
             toast(`Resuming at ${formatTime(prog.pos)}`);
@@ -651,7 +752,10 @@ const App = (() => {
       },
       destroy() {
         clearInterval(countdown);
-        if (video) {
+        // A movie on the TV keeps playing after leaving this screen; stop listening to it.
+        remoteOffs.forEach((off) => off());
+        if (castOff) castOff();
+        if (video && !casting) {
           saveProgress();
           video.pause(); video.removeAttribute("src"); video.load();
         }
@@ -699,6 +803,7 @@ const App = (() => {
   const api = { go, back, replace, toast };
 
   updateWho();
+  Cast.load();
   openTab(profile ? "home" : "profiles");
   return api;
 })();
