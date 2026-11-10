@@ -47,8 +47,8 @@ async function makePosters(out) {
   try { sharp = require("sharp"); } catch (_) { console.log("posters: skipped (sharp not installed)"); return; }
   const dir = path.join(OUT, "posters");
   fs.mkdirSync(dir, { recursive: true });
-  // ".v2" — the first batch picked up sound-wave pictures (spectrograms); new names replace them all.
-  const fileFor = (id) => id.replace(/[^A-Za-z0-9._-]/g, "_") + ".v2.jpg";
+  // ".v3" — earlier batches picked up sound-wave pictures (spectrograms); new names replace them all.
+  const fileFor = (id) => id.replace(/[^A-Za-z0-9._-]/g, "_") + ".v3.jpg";
   const wanted = new Set();
   const ids = Object.keys(out.info).filter((id) => out.info[id] && out.info[id].image);
   let made = 0, kept = 0, failed = 0, i = 0;
@@ -66,12 +66,13 @@ async function makePosters(out) {
           // Fill a 4:3 card, centered; skip tiny images that would look blurry.
           const meta = await sharp(buf).metadata();
           if ((meta.width || 0) < 240) throw new Error("too small");
-          // Skip pictures that are almost entirely black (sound-wave images, blank frames).
-          const stats = await sharp(buf).stats();
+          const poster = await sharp(buf).rotate().resize(480, 360, { fit: "cover", position: "attention" }).jpeg({ quality: 74, mozjpeg: true }).toBuffer();
+          // Skip pictures that come out almost entirely black (sound-wave images, blank frames).
+          const stats = await sharp(poster).stats();
           const mean = stats.channels.slice(0, 3).reduce((t, c) => t + c.mean, 0) / 3;
           const spread = stats.channels.slice(0, 3).reduce((t, c) => t + c.stdev, 0) / 3;
           if (mean < 14 || spread < 6) throw new Error("almost black");
-          await sharp(buf).rotate().resize(480, 360, { fit: "cover", position: "attention" }).jpeg({ quality: 74, mozjpeg: true }).toFile(target);
+          fs.writeFileSync(target, poster);
           made++;
         } else kept++;
         out.info[id].poster = "posters/" + file;

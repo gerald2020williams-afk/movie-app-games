@@ -22,7 +22,8 @@ const server = http.createServer((req, res) => {
     const id = u.pathname.split("/")[2];
     const broken = id.endsWith("-7");
     const noPicture = /-(2|5|8)$/.test(id);
-    const files = [{ name: `${id}.mp4`, format: "h.264", length: "4200" }, { name: `${id}.gif`, format: "Animated GIF", size: "900000" }];
+    const files = [{ name: `${id}.mp4`, format: "h.264", length: "4200" }, { name: `${id}.gif`, format: "Animated GIF", size: "900000" },
+      { name: `${id}.png`, format: "PNG", size: "990000", source: "derivative" }];
     if (!noPicture) files.push({ name: `${id}.jpg`, format: "JPEG", size: "50000" });
     return res.end(JSON.stringify({ result: broken ? [] : files }));
   }

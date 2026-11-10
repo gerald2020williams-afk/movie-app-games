@@ -86,8 +86,9 @@ const Catalog = (() => {
       .filter((d) => d.identifier && d.title)
       .map((d) => ({
         id: d.identifier,
-        title: cleanTitle(first(d.title), d.year),
-        year: d.year ? String(first(d.year)).slice(0, 4) : "",
+        // No year listed? Use one written in the title, like "Rudolph (1948)".
+        year: d.year ? String(first(d.year)).slice(0, 4) : ((String(first(d.title)).match(/[\(\[]((?:18|19|20)\d\d)[\)\]]/) || [])[1] || ""),
+        title: cleanTitle(first(d.title), d.year || (String(first(d.title)).match(/[\(\[]((?:18|19|20)\d\d)[\)\]]/) || [])[1]),
         runtime: d.runtime ? String(first(d.runtime)) : "",
         description: cleanText(Array.isArray(d.description) ? d.description.join(" ") : d.description || "").slice(0, 600),
         creator: d.creator ? String(first(d.creator)).slice(0, 80) : "",
@@ -151,15 +152,15 @@ const Catalog = (() => {
   function infoStore() {
     if (!infoCache) {
       // Older saved details could point at animated pictures; start fresh once.
-      try { localStorage.removeItem("ia-info"); localStorage.removeItem("ia-info2"); localStorage.removeItem("ia-info3"); } catch (_) {}
-      infoCache = load("ia-info4") || {};
+      try { localStorage.removeItem("ia-info"); localStorage.removeItem("ia-info2"); localStorage.removeItem("ia-info3"); localStorage.removeItem("ia-info4"); } catch (_) {}
+      infoCache = load("ia-info5") || {};
     }
     return infoCache;
   }
   function saveInfoStore() {
     const entries = Object.entries(infoCache);
     if (entries.length > 800) infoCache = Object.fromEntries(entries.slice(-600));
-    store("ia-info4", infoCache, INFO_TTL);
+    store("ia-info5", infoCache, INFO_TTL);
   }
   function isBroken(id) { const i = infoStore()[id]; return !!(i && i.broken); }
 
@@ -196,7 +197,9 @@ const Catalog = (() => {
       // Smaller file for data saver (phones on cell data, slow connections).
       const small = files.find((f) => f.format === "512Kb MPEG4") || files.filter((f) => /\.mp4$/i.test(f.name) && f.size).sort((a, b) => a.size - b.size)[0];
 
-      const images = files.filter((f) => IMAGE_FORMATS.includes(f.format) && /\.(jpe?g|png)$/i.test(f.name) && !/\.thumbs\/|__ia_thumb|_thumb\.|spectrogram|waveform|_spec\.|\.spec\./i.test(f.name))
+      // Only pictures someone uploaded ("original"). The Archive also generates pictures from each
+      // movie's soundtrack (spectrograms, marked "derivative"), which look like black boxes with lines.
+      const images = files.filter((f) => f.source !== "derivative" && IMAGE_FORMATS.includes(f.format) && /\.(jpe?g|png)$/i.test(f.name) && !/\.thumbs\/|__ia_thumb|_thumb\.|spectrogram|waveform|_spec\.|\.spec\./i.test(f.name))
         .sort((a, b) => Number(b.size || 0) - Number(a.size || 0));
       // Subtitle files (.srt or .vtt), with a language guessed from the file name.
       const LANGS = { en: "English", eng: "English", english: "English", es: "Spanish", spa: "Spanish", spanish: "Spanish", fr: "French", fre: "French", french: "French", de: "German", ger: "German", german: "German", it: "Italian", pt: "Portuguese" };

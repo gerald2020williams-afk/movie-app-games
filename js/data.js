@@ -29,7 +29,7 @@ const KID_SAFE = ' AND NOT subject:(propaganda OR racist OR racism OR "racial st
 
 // Adult content: never shown to Little Kids, Kids or Teens, whatever row it turns up in.
 // Checked against each movie's title, description and Internet Archive topic tags.
-const ADULT_CONTENT = /\b(naked|nude|nudes|nudity|nudist|nudie|topless|sex|sexy|sexual|sexploitation|erotic|erotica|stripper|striptease|burlesque queen|x-rated|adults? only|softcore|exploitation|seduc\w*|prostitut\w*|brothel|incest|rape|raped|slasher|gore|gory|massacre|serial killer|cannibal\w*|satanic|occult|marijuana|reefer|cocaine|heroin|lsd)\b/i;
+const ADULT_CONTENT = /\b(naked|nude|nudes|nudity|nudist|nudie|topless|sex|sexy|sexual|sexploitation|erotic|erotica|stripper|striptease|burlesque queen|x-rated|adults? only|softcore|exploitation|seduc\w*|prostitut\w*|brothel|incest|rape|raped|slasher|gore|gory|massacre|serial killer|cannibal\w*|satanic|occult|marijuana|reefer|cocaine|heroin|lsd|vivisection|revival of organisms|autopsy|corpses?|execution|severed|torture)\b/i;
 
 // A shelf is visible to a profile when shelf.level <= profile.level.
 // Search for an exact list of titles within trusted collections.

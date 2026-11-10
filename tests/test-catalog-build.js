@@ -19,7 +19,7 @@ const mock = require("./mock-archive");
     const openRows = ["new-family", "new-teens"];
     const unlicensedNew = Object.entries(cat.shelves).filter(([k]) => !openRows.includes(k)).flatMap(([, r]) => r).some((x) => +x.year > 1977);
     console.log("no trailers:", !all.some((x) => /Trailer/.test(x.title)), "| no post-1977 unlicensed:", !unlicensedNew, "| no 1-minute clips:", !all.some((x) => x.runtime === "0:01:00"));
-    console.log("no broken movies:", !all.some((x) => /-7$/.test(x.id)), "| still pictures only:", !Object.values(cat.info).some((i) => /\.gif/.test(i.image || "")));
+    console.log("no broken movies:", !all.some((x) => /-7$/.test(x.id)), "| still pictures only:", !Object.values(cat.info).some((i) => /\.gif/.test(i.image || "")), "| no sound-wave pictures:", !Object.values(cat.info).some((i) => /\.png$/.test(i.image || "")));
     console.log("no duplicates in a row:", Object.values(cat.shelves).every((r) => new Set(r.map((x) => x.title)).size === r.length));
     console.log("errors: []");
   } finally {
