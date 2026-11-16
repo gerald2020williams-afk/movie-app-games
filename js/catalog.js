@@ -252,6 +252,7 @@ const Catalog = (() => {
     m = /^(\d+(\.\d+)?)$/.exec(r);
     return m ? +m[1] : null;
   }
+  const hasNudity = (it) => NUDITY.test(`${it.title} ${it.description || ""} ${it.subjects || ""}`);
   const isAdult = (it) => ADULT_CONTENT.test(`${it.title} ${it.description || ""} ${it.subjects || ""}`);
   const isOpenLicense = (url) => /creativecommons\.org|publicdomain/i.test(url || "");
 
@@ -263,7 +264,11 @@ const Catalog = (() => {
     if (shelf.level !== undefined && shelf.level < 3 && isAdult(it)) return false;
     // Copyright: newer films need an open license, unless the row is a known open-movie row.
     const year = Number(it.year) || 0;
-    if (!shelf.licensed && year > COPYRIGHT_CUTOFF_YEAR && !isOpenLicense(it.license) && !PUBLIC_DOMAIN_EXCEPTIONS.test(it.title)) return false;
+    // Rows of Creative Commons films: every film must actually carry an open license.
+    if (shelf.requireOpenLicense && !isOpenLicense(it.license)) return false;
+    // The adults-only row holds only films that really are adult (keeps unrelated matches out).
+    if (shelf.adultsOnly && !isAdult(it)) return false;
+    if (!shelf.licensed && !shelf.requireOpenLicense && year > COPYRIGHT_CUTOFF_YEAR && !isOpenLicense(it.license) && !PUBLIC_DOMAIN_EXCEPTIONS.test(it.title)) return false;
     if (shelf.level !== undefined && shelf.level <= 1 && !shelf.licensed && year > KIDS_LATEST_YEAR && !isOpenLicense(it.license)) return false;
     const mins = minutes(it.runtime);
     if (mins !== null && mins < Math.max(MIN_MINUTES, shelf.minMinutes || 0)) return false;
@@ -306,7 +311,7 @@ const Catalog = (() => {
       const varied = kept.filter((it) => !inCollections.has(it.id));
       return (varied.length >= 8 ? varied : kept).slice(0, 24);
     },
-    passesRules, minutes, isAdult, isOpenLicense, blocklistReady, catalogReady, cleanTitle, dedupe,
+    passesRules, minutes, isAdult, isOpenLicense, hasNudity, blocklistReady, catalogReady, cleanTitle, dedupe,
     usingSharedCatalog: () => !!shared,
     // Search titles within the shelves the profile is allowed to see.
     // Most-watched movies this week among the rows this profile can see.

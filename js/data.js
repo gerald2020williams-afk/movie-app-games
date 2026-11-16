@@ -29,6 +29,8 @@ const KID_SAFE = ' AND NOT subject:(propaganda OR racist OR racism OR "racial st
 
 // Adult content: never shown to Little Kids, Kids or Teens, whatever row it turns up in.
 // Checked against each movie's title, description and Internet Archive topic tags.
+// Movies with nudity: shown only to Adults profiles, always labeled "Nudity" so viewers know.
+const NUDITY = /\b(naked|nude|nudes|nudity|nudist|nudists|nudie|nudies|topless|three bares|burlesque queen|nudie[- ]cutie)\b/i;
 const ADULT_CONTENT = /\b(naked|nude|nudes|nudity|nudist|nudie|topless|sex|sexy|sexual|sexploitation|erotic|erotica|stripper|striptease|burlesque queen|x-rated|adults? only|softcore|exploitation|seduc\w*|prostitut\w*|brothel|incest|rape|raped|slasher|gore|gory|massacre|serial killer|cannibal\w*|satanic|occult|marijuana|reefer|cocaine|heroin|lsd|vivisection|revival of organisms|autopsy|corpses?|execution|severed|torture)\b/i;
 
 // A shelf is visible to a profile when shelf.level <= profile.level.
@@ -66,6 +68,26 @@ const SHELVES = [
     q: "mediatype:(movies) AND title:(\"Big Buck Bunny\" OR \"Caminandes\" OR \"Wing It\" OR \"Coffee Run\" OR \"Agent 327\") AND (subject:(blender OR \"open movie\" OR animation) OR creator:(blender))" + KID_SAFE },
   { id: "new-teens", title: "New Free Movies for Teens", level: 2, featured: true, licensed: true,
     q: "mediatype:(movies) AND title:(\"Sintel\" OR \"Tears of Steel\" OR \"Cosmos Laundromat\" OR \"Sprite Fright\" OR \"Elephants Dream\") AND (subject:(blender OR \"open movie\" OR animation OR \"science fiction\") OR creator:(blender))" },
+  // More free films their makers shared under Creative Commons (each must carry an open license).
+  { id: "open-family", title: "More Free Open Movies", level: 0, requireOpenLicense: true,
+    q: "mediatype:(movies) AND title:(\"Spring\" OR \"Hero\" OR \"Daily Dweebs\" OR \"Glass Half\" OR \"Big Buck Bunny\" OR \"Caminandes\") AND (subject:(blender OR \"open movie\" OR \"creative commons\") OR creator:(blender))" + KID_SAFE },
+  { id: "open-teens", title: "Free Indie Films (Creative Commons)", level: 2, requireOpenLicense: true,
+    q: "mediatype:(movies) AND title:(\"Sita Sings the Blues\" OR \"Charge\" OR \"Valkaama\" OR \"Star Wreck\" OR \"Route 66\" OR \"Big Buck Bunny\")" },
+
+  // ----- Newly public domain: US copyright on 1928–1930 films ended on Jan 1, 2024, 2025 and 2026 -----
+  { id: "newly-free-cartoons", title: "Newly Free: First Mickey & Betty Boop Cartoons", level: 0, collection: true,
+    q: "mediatype:(movies) AND year:[1928 TO 1930] AND title:(\"Steamboat Willie\" OR \"Plane Crazy\" OR \"Gallopin' Gaucho\" OR \"Skeleton Dance\" OR \"Karnival Kid\" OR \"Barn Dance\" OR \"Dizzy Dishes\" OR \"The Chain Gang\" OR \"The Picnic\" OR \"Hell's Bells\" OR \"Springtime\")" + KID_SAFE },
+  { id: "newly-free-films", title: "Newly Free: 1929–1930 Classics", level: 2, collection: true, minMinutes: 15,
+    q: "mediatype:(movies) AND year:[1929 TO 1930] AND title:(\"All Quiet on the Western Front\" OR \"Animal Crackers\" OR \"The Cocoanuts\" OR \"Murder!\" OR \"Blackmail\" OR \"Little Caesar\" OR \"Anna Christie\" OR \"The Broadway Melody\" OR \"The Bishop Murder Case\" OR \"Night Owls\" OR \"The Big Trail\" OR \"Morocco\" OR \"Brats\" OR \"Hog Wild\" OR \"Below Zero\")" },
+
+  // ----- US government films: made by NASA and other federal agencies, so public domain -----
+  { id: "nasa", title: "Space & Science (NASA)", level: 0, collection: true,
+    q: "mediatype:(movies) AND (collection:(nasa OR prelinger OR ephemera OR feature_films) AND subject:(nasa OR apollo OR astronaut OR \"space flight\" OR moon OR rocket OR \"space exploration\"))" + KID_SAFE },
+
+  // ----- Adults only: films with nudity (pre-1964, never shown to younger profiles, always labeled) -----
+  { id: "adults-nudity", title: "Adults Only · Contains Nudity", level: 3, adultsOnly: true, minMinutes: 40,
+    q: "mediatype:(movies) AND collection:(feature_films) AND (title:(\"Wild Gals of the Naked West\" OR \"Goldilocks and the Three Bares\" OR \"The Naked Witch\" OR nudie OR naked OR nudist) OR subject:(nudity OR nudie OR \"nudie cutie\" OR nudist OR sexploitation))" },
+
   // ----- Hand-picked collections (well-known public-domain films) -----
   { id: "family-night", title: "Family Movie Night", level: 0, collection: true,
     q: titles(["Gulliver's Travels", "Jack and the Beanstalk", "The Little Princess", "Rudolph the Red-Nosed Reindeer", "Mr. Bug Goes to Town", "Hoppity Goes to Town", "The Adventures of Tom Sawyer", "Sherlock Jr.", "Santa Claus Conquers the Martians", "Little Lord Fauntleroy"], "feature_films OR classic_cartoons OR animationandcartoons OR silent_films") + KID_SAFE },

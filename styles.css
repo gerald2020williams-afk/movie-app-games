@@ -329,6 +329,14 @@ body.remote-mode .nav { display: none; }
 .hero-art.titlecard small, .mp-art.titlecard small { font-size: 1rem; }
 .mp-art.titlecard video:not([hidden]) { position: absolute; inset: 0; }
 
+/* ---------- Nudity label ---------- */
+.nudity-badge { position: absolute; top: .5rem; right: .5rem; padding: .15rem .5rem; border-radius: .35rem; background: var(--bad); color: #fff; font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.titlecard .nudity-badge { position: absolute; }
+.nudity-tag { color: #ff9b91; font-weight: 700; }
+.nudity-chip { display: inline-block; vertical-align: middle; margin-left: .5rem; padding: .2rem .6rem; border-radius: .4rem; background: var(--bad); color: #fff; font-family: var(--body); font-size: .9rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.player-bar .nudity-chip { font-size: .65rem; }
+.content-warning { color: #ff9b91 !important; font-weight: 700; margin: 0; }
+
 /* ---------- Series ---------- */
 .ep-count { position: absolute; right: .5rem; bottom: .5rem; padding: .15rem .5rem; border-radius: .4rem; background: rgba(0,0,0,.72); color: #fff; font-size: .7rem; font-weight: 700; }
 .series-head { display: grid; grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); gap: 2rem; align-items: center; }

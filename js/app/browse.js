@@ -51,7 +51,7 @@ function HomeView() {
         }).catch(() => {});
         const prog = History.get(profile.id, it.id);
         el.querySelector("#hero-play").textContent = prog ? `▶ Resume ${formatTime(prog.pos)}` : "▶ Play";
-        el.querySelector("#hero-title").textContent = it.title;
+        el.querySelector("#hero-title").textContent = it.title + (Catalog.hasNudity(it) ? " · Nudity" : "");
         el.querySelector("#hero-meta").textContent = [heroShelf.title, it.year, it.runtime].filter(Boolean).join(" · ");
         el.querySelector("#hero-desc").textContent = it.description || "A free movie from the Internet Archive.";
         el.querySelector("#hero-dots").innerHTML = heroItems.map((_, i) => `<i class="${i === heroAt ? "on" : ""}"></i>`).join("");
@@ -234,7 +234,8 @@ function DetailView(item, list = []) {
           <div class="mp-art${art.card ? " titlecard" : ""}" id="mp-art" style="${bg}">${art.card ? `<b>${escapeHtml(item.title)}</b>${item.year ? `<small>${escapeHtml(item.year)}</small>` : ""}` : ""}<video id="mp-preview" muted playsinline loop hidden></video></div>
           <div class="mp-copy">
             ${shelf ? `<span class="tag">${escapeHtml(shelf.title)}</span>` : ""}
-            <h1>${escapeHtml(item.title)}</h1>
+            <h1>${escapeHtml(item.title)}${Catalog.hasNudity(item) ? ` <span class="nudity-chip">Nudity</span>` : ""}</h1>
+            ${Catalog.hasNudity(item) ? `<p class="content-warning">Contains nudity. Adults only.</p>` : ""}
             <div class="meta">${escapeHtml([item.year, item.runtime].filter(Boolean).join(" · "))}${prog ? ` · ${formatTime(prog.dur - prog.pos)} left` : ""}</div>
             <p>${escapeHtml(item.description || "A free movie from the Internet Archive.")}</p>
             <p class="credit">${creditLine(item)}</p>

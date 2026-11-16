@@ -112,7 +112,7 @@ function PlayerView(item, list = [], { resume = true } = {}) {
     tab: current ? current.tab : "home",
     render(el) {
       el.innerHTML = `<section class="player">
-        <div class="player-bar"><button class="f btn" id="back">← Back</button><h1>${escapeHtml(item.title)}</h1>
+        <div class="player-bar"><button class="f btn" id="back">← Back</button><h1>${escapeHtml(item.title)}${Catalog.hasNudity(item) ? ` <span class="nudity-chip">Nudity</span>` : ""}</h1>
           <button class="f btn" id="cc" hidden aria-pressed="false">CC Subtitles</button>
           <button class="f btn" id="cast" hidden>Cast to TV</button>
           <button class="f btn" id="full">⛶ Full screen</button></div>

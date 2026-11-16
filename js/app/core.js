@@ -97,10 +97,11 @@ function thumbHtml(item, inner = "", extraClass = "") {
 
 function cardHtml(item, progress, rank) {
   const pct = progress ? Math.min(100, Math.round((progress.pos / progress.dur) * 100)) : 0;
-  const label = [rank ? `Number ${rank}` : "", item.title, item.year, progress ? `${formatTime(progress.dur - progress.pos)} left` : ""].filter(Boolean).join(", ");
+  const nude = Catalog.hasNudity(item);
+  const label = [rank ? `Number ${rank}` : "", item.title, nude ? "contains nudity" : "", item.year, progress ? `${formatTime(progress.dur - progress.pos)} left` : ""].filter(Boolean).join(", ");
   return `<button class="f card${rank ? " ranked" : ""}" data-id="${escapeHtml(item.id)}" aria-label="${escapeHtml(label)}">${rank ? `<span class="rank" aria-hidden="true">${rank}</span>` : ""}
-    ${thumbHtml(item, pct ? `<span class="progress"><i style="width:${pct}%"></i></span>` : "")}
-    <span class="t">${escapeHtml(item.title)}</span>
+    ${thumbHtml(item, `${nude ? `<span class="nudity-badge">Nudity</span>` : ""}${pct ? `<span class="progress"><i style="width:${pct}%"></i></span>` : ""}`)}
+    <span class="t">${escapeHtml(item.title)}${nude ? ` <span class="nudity-tag">· Nudity</span>` : ""}</span>
     <span class="y">${progress ? `${formatTime(progress.dur - progress.pos)} left` : escapeHtml(item.year || "")}</span>
   </button>`;
 }
@@ -164,7 +165,7 @@ function allowed(items) {
   const safe = Safety.filterOn(profile);
   const grownUp = profile.level >= 3;
   const tooNewForKids = (it) => profile.level <= 1 && Number(it.year) > KIDS_LATEST_YEAR && !Catalog.isOpenLicense(it.license) && !/^(new-family|new-teens)$/.test(it.shelf || "");
-  return items.filter((it) => !Catalog.isBroken(it.id) && !hidden.has(it.id) && !disliked.has(it.id) && !(safe && Safety.isUnsafe(it)) && (grownUp || !Catalog.isAdult(it)) && !tooNewForKids(it));
+  return items.filter((it) => !Catalog.isBroken(it.id) && !hidden.has(it.id) && !disliked.has(it.id) && !(safe && Safety.isUnsafe(it)) && (grownUp || (!Catalog.isAdult(it) && !Catalog.hasNudity(it))) && !tooNewForKids(it));
 }
 
 // Renders a shelf row and wires its cards. Returns a promise of the items.
