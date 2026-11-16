@@ -87,7 +87,7 @@ const Catalog = (() => {
       .map((d) => ({
         id: d.identifier,
         // No year listed? Use one written in the title, like "Rudolph (1948)".
-        year: d.year ? String(first(d.year)).slice(0, 4) : ((String(first(d.title)).match(/[\(\[]((?:18|19|20)\d\d)[\)\]]/) || [])[1] || ""),
+        year: d.year ? String(first(d.year)).slice(0, 4) : ((String(first(d.title)).match(/\b((?:18|19|20)\d\d)\b/) || [])[1] || ""),
         title: cleanTitle(first(d.title), d.year || (String(first(d.title)).match(/[\(\[]((?:18|19|20)\d\d)[\)\]]/) || [])[1]),
         runtime: d.runtime ? String(first(d.runtime)) : "",
         description: cleanText(Array.isArray(d.description) ? d.description.join(" ") : d.description || "").slice(0, 600),
@@ -252,7 +252,7 @@ const Catalog = (() => {
     m = /^(\d+(\.\d+)?)$/.exec(r);
     return m ? +m[1] : null;
   }
-  const hasNudity = (it) => NUDITY.test(`${it.title} ${it.description || ""} ${it.subjects || ""}`);
+  const hasNudity = (it) => KNOWN_NUDITY.test(it.title) || NUDITY.test(`${it.title} ${it.description || ""} ${it.subjects || ""}`);
   const isAdult = (it) => ADULT_CONTENT.test(`${it.title} ${it.description || ""} ${it.subjects || ""}`);
   const isCreativeCommons = (url) => /creativecommons\.org\/(licenses|publicdomain\/zero)\//i.test(url || "");
   const isOpenLicense = (url) => /creativecommons\.org|publicdomain/i.test(url || "");
@@ -268,7 +268,14 @@ const Catalog = (() => {
     // Rows of Creative Commons films: every film must actually carry an open license.
     if (shelf.requireOpenLicense && !isOpenLicense(it.license)) return false;
     // The adults-only row holds only films that really are adult (keeps unrelated matches out).
-    if (shelf.adultsOnly && !isAdult(it)) return false;
+    // Must really have nudity, and a known year no later than the copyright cutoff
+    // (some later films here have no year listed, which would otherwise slip past).
+    if (shelf.adultsOnly) {
+      const known = Object.entries(KNOWN_NUDITY_YEARS).find(([t]) => it.title.toLowerCase().replace(/[.,]/g, "").startsWith(t.replace(/[.,]/g, "")));
+      // A year written in the description like "[1964]" also counts.
+      const y = year || (known && known[1]) || Number(((it.description || "").match(/\[((?:19|20)\d\d)\]/) || [])[1]) || 0;
+      if (!hasNudity(it) || !y || y > COPYRIGHT_CUTOFF_YEAR) return false;
+    }
     // Copyright: after the cutoff, only films in the hand-picked open-movie rows (by exact title,
     // with a real Creative Commons license) or on the known public-domain list. A "public domain"
     // or Creative Commons label set by whoever uploaded a film is not enough on its own: uploaders

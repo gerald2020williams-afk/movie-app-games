@@ -30,8 +30,14 @@ const KID_SAFE = ' AND NOT subject:(propaganda OR racist OR racism OR "racial st
 // Adult content: never shown to Little Kids, Kids or Teens, whatever row it turns up in.
 // Checked against each movie's title, description and Internet Archive topic tags.
 // Movies with nudity: shown only to Adults profiles, always labeled "Nudity" so viewers know.
-const NUDITY = /\b(naked|nude|nudes|nudity|nudist|nudists|nudie|nudies|topless|three bares|burlesque queen|nudie[- ]cutie)\b/i;
-const ADULT_CONTENT = /\b(naked|nude|nudes|nudity|nudist|nudie|topless|sex|sexy|sexual|sexploitation|erotic|erotica|stripper|striptease|burlesque queen|x-rated|adults? only|softcore|exploitation|seduc\w*|prostitut\w*|brothel|incest|rape|raped|slasher|gore|gory|massacre|serial killer|cannibal\w*|satanic|occult|marijuana|reefer|cocaine|heroin|lsd|vivisection|revival of organisms|autopsy|corpses?|execution|severed|torture)\b/i;
+const NUDITY = /\b(nude|nudes|nudity|nudist|nudists|nudism|nudie|nudies|topless|nudie[- ]cutie|sexploitation|sexploition|sexplotation)\b/i;
+// Known films with nudity whose descriptions don't say so. ("Naked" in a title alone isn't counted:
+// The Naked City, Naked Alibi and The Naked Island have no nudity.)
+// Release years for these films, used when the Internet Archive lists none (for the copyright check).
+const KNOWN_NUDITY_YEARS = { "wild gals of the naked west": 1962, "goldilocks and the three bares": 1963, "the naked witch": 1961,
+  "the house on bare mountain": 1962, "nude on the moon": 1961, "diary of a nudist": 1961, "not tonight henry": 1960, "dr. sex": 1964 };
+const KNOWN_NUDITY = /^(wild gals of the naked west|goldilocks and the three bares|the naked witch|the house on bare mountain|nude on the moon|diary of a nudist|not tonight,? henry|dr\.? sex|hon dansade en sommar|one summer of happiness)/i;
+const ADULT_CONTENT = /\b(nude|nudes|nudity|nudist|nudie|topless|sex|sexy|sexual|sexploitation|erotic|erotica|stripper|striptease|burlesque queen|x-rated|adults? only|softcore|exploitation|seduc\w*|prostitut\w*|brothel|incest|rape|raped|slasher|gore|gory|massacre|serial killer|cannibal\w*|satanic|occult|marijuana|reefer|cocaine|heroin|lsd|vivisection|revival of organisms|autopsy|corpses?|execution|severed|torture)\b/i;
 
 // A shelf is visible to a profile when shelf.level <= profile.level.
 // Search for an exact list of titles within trusted collections.
@@ -86,7 +92,7 @@ const SHELVES = [
 
   // ----- Adults only: films with nudity (pre-1964, never shown to younger profiles, always labeled) -----
   { id: "adults-nudity", title: "Adults Only · Contains Nudity", level: 3, adultsOnly: true, minMinutes: 40,
-    q: "mediatype:(movies) AND collection:(feature_films) AND (title:(\"Wild Gals of the Naked West\" OR \"Goldilocks and the Three Bares\" OR \"The Naked Witch\" OR nudie OR naked OR nudist) OR subject:(nudity OR nudie OR \"nudie cutie\" OR nudist OR sexploitation))" },
+    q: "mediatype:(movies) AND collection:(feature_films) AND (title:(\"Wild Gals of the Naked West\" OR \"Goldilocks and the Three Bares\" OR \"The Naked Witch\" OR \"House on Bare Mountain\" OR \"Nude on the Moon\" OR \"Diary of a Nudist\" OR nudie OR nudist) OR subject:(nudity OR nudie OR \"nudie cutie\" OR nudist OR nudism OR sexploitation))" },
 
   // ----- Hand-picked collections (well-known public-domain films) -----
   { id: "family-night", title: "Family Movie Night", level: 0, collection: true,
