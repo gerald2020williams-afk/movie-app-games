@@ -30,6 +30,8 @@ A TV-style app for the whole family: watch free classic movies and cartoons, pla
 - **Posters.** The daily job saves a sharp 480x360 copy of each movie's picture in `posters/`; movies with no picture get a gold-and-black title card.
 - **Series and episodes.** Popeye, Superman, Betty Boop, Casper, Felix, Caminandes, Chaplin and Keaton shorts and the Three Stooges each get a show page with numbered episodes, Continue episode, watched marks and Next episode autoplay.
 - **Phones and tablets.** Bottom tab bar on phones, swipeable rows, a Mini player (picture-in-picture), and turning the phone sideways goes full screen.
+- **Newly public domain.** Rows for 1928–1930 films and cartoons whose US copyright has ended (Steamboat Willie, The Skeleton Dance, All Quiet on the Western Front, The Cocoanuts...), plus NASA films and more Creative Commons films.
+- **Adults Only · Contains Nudity.** Films with nudity are only shown to Adults profiles and are always labeled "Nudity" on the poster, title, movie page and player.
 - **Movie previews.** On bigger screens the featured movie plays a short silent preview after a moment.
 - **Categories.** New Free Movies, Classic Cartoons, Holiday Favorites, Nature & Animals, Comedy, Silent Films, Musicals, Westerns, Documentaries, Adventure, Sci-Fi, Film Noir and Horror (by age group).
 - **Controller, remote or keyboard.** Arrow keys or D-pad to move, A / Enter to choose, B / Escape to go back. While a movie plays: OK pauses, left/right skip 10 seconds, Y goes full screen.
@@ -39,7 +41,7 @@ A TV-style app for the whole family: watch free classic movies and cartoons, pla
 ## How it stays fast, safe and reliable
 
 - **Shared catalog.** A GitHub job (`.github/workflows/catalog.yml`) runs `scripts/build-catalog.js` once a day. It collects every movie row, the Top 10 and each movie's video, picture and subtitle links into `catalog.json` on the site. Viewers load that one file instead of each asking the Internet Archive, so rows appear faster and the Archive gets a handful of requests a day instead of thousands. If the file is missing or more than 4 days old, the app asks the Archive directly.
-- **Copyright safety.** Only curated Internet Archive collections are used. Films made after 1977 are only shown with an open license (like Creative Commons). To take a movie down for everyone, add its Internet Archive ID or part of its title to `blocklist.json`. **Report a problem** on any movie page opens a prefilled issue on this repository.
+- **Copyright safety.** Only curated Internet Archive collections are used. Films made after 1963 are only shown when they're hand-picked open movies with a real Creative Commons license, NASA films (US government works are public domain), or on a short list of known public-domain films. License labels set by uploaders are not trusted on their own. To take a movie down for everyone, add its Internet Archive ID or part of its title to `blocklist.json`. **Report a problem** on any movie page opens a prefilled issue on this repository.
 - **Quality filter.** Trailers, clips, test uploads and very short files are skipped, feature rows skip anything under 40 minutes, and duplicate copies are removed.
 - **Bundled and shrunk.** `npm run build` combines the scripts in `js/` into `dist/app.min.js` and the styles into `dist/styles.min.css`. It also converts newer code so older smart-TV browsers can run it. **Run it after changing anything in `js/` or `styles.css`.**
 - **Automatic tests.** `.github/workflows/test.yml` runs every test and a stress test on each update.

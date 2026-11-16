@@ -49,7 +49,7 @@ const TRUSTED_COLLECTIONS = ["feature_films", "classic_cartoons", "animationandc
 const COPYRIGHT_CUTOFF_YEAR = 1963;
 // Later films that are well known to be in the public domain (for example, released without a
 // copyright notice). Add titles here only when that's clearly documented.
-const PUBLIC_DOMAIN_EXCEPTIONS = /^(night of the living dead|santa claus conquers the martians|manos:? the hands of fate|the terror|dementia 13|carnival of souls|the little shop of horrors|plan 9 from outer space|charade|mclintock!?)\b/i;
+const PUBLIC_DOMAIN_EXCEPTIONS = /^(sita sings the blues|night of the living dead|santa claus conquers the martians|manos:? the hands of fate|the terror|dementia 13|carnival of souls|the little shop of horrors|plan 9 from outer space|charade|mclintock!?)\b/i;
 // Kids' rows (Little Kids and Kids) only show films from before this year, unless openly licensed:
 // later films are much more likely to have mature content.
 const KIDS_LATEST_YEAR = 1969;
@@ -72,7 +72,7 @@ const SHELVES = [
   { id: "open-family", title: "More Free Open Movies", level: 0, requireOpenLicense: true,
     q: "mediatype:(movies) AND title:(\"Spring\" OR \"Hero\" OR \"Daily Dweebs\" OR \"Glass Half\" OR \"Big Buck Bunny\" OR \"Caminandes\") AND (subject:(blender OR \"open movie\" OR \"creative commons\") OR creator:(blender))" + KID_SAFE },
   { id: "open-teens", title: "Free Indie Films (Creative Commons)", level: 2, requireOpenLicense: true,
-    q: "mediatype:(movies) AND title:(\"Sita Sings the Blues\" OR \"Charge\" OR \"Valkaama\" OR \"Star Wreck\" OR \"Route 66\" OR \"Big Buck Bunny\")" },
+    q: "mediatype:(movies) AND title:(\"Sita Sings the Blues\" OR \"Valkaama\" OR \"Star Wreck\" OR \"Route 66\" OR \"Big Buck Bunny\")" },
 
   // ----- Newly public domain: US copyright on 1928–1930 films ended on Jan 1, 2024, 2025 and 2026 -----
   { id: "newly-free-cartoons", title: "Newly Free: First Mickey & Betty Boop Cartoons", level: 0, collection: true,
@@ -81,7 +81,7 @@ const SHELVES = [
     q: "mediatype:(movies) AND year:[1929 TO 1930] AND title:(\"All Quiet on the Western Front\" OR \"Animal Crackers\" OR \"The Cocoanuts\" OR \"Murder!\" OR \"Blackmail\" OR \"Little Caesar\" OR \"Anna Christie\" OR \"The Broadway Melody\" OR \"The Bishop Murder Case\" OR \"Night Owls\" OR \"The Big Trail\" OR \"Morocco\" OR \"Brats\" OR \"Hog Wild\" OR \"Below Zero\")" },
 
   // ----- US government films: made by NASA and other federal agencies, so public domain -----
-  { id: "nasa", title: "Space & Science (NASA)", level: 0, collection: true,
+  { id: "nasa", title: "Space & Science (NASA)", level: 0, collection: true, usGov: true,
     q: "mediatype:(movies) AND (collection:(nasa OR prelinger OR ephemera OR feature_films) AND subject:(nasa OR apollo OR astronaut OR \"space flight\" OR moon OR rocket OR \"space exploration\"))" + KID_SAFE },
 
   // ----- Adults only: films with nudity (pre-1964, never shown to younger profiles, always labeled) -----

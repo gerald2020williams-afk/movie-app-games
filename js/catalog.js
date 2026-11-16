@@ -254,6 +254,7 @@ const Catalog = (() => {
   }
   const hasNudity = (it) => NUDITY.test(`${it.title} ${it.description || ""} ${it.subjects || ""}`);
   const isAdult = (it) => ADULT_CONTENT.test(`${it.title} ${it.description || ""} ${it.subjects || ""}`);
+  const isCreativeCommons = (url) => /creativecommons\.org\/(licenses|publicdomain\/zero)\//i.test(url || "");
   const isOpenLicense = (url) => /creativecommons\.org|publicdomain/i.test(url || "");
 
   // Copyright and quality rules every list goes through.
@@ -268,7 +269,14 @@ const Catalog = (() => {
     if (shelf.requireOpenLicense && !isOpenLicense(it.license)) return false;
     // The adults-only row holds only films that really are adult (keeps unrelated matches out).
     if (shelf.adultsOnly && !isAdult(it)) return false;
-    if (!shelf.licensed && !shelf.requireOpenLicense && year > COPYRIGHT_CUTOFF_YEAR && !isOpenLicense(it.license) && !PUBLIC_DOMAIN_EXCEPTIONS.test(it.title)) return false;
+    // Copyright: after the cutoff, only films in the hand-picked open-movie rows (by exact title,
+    // with a real Creative Commons license) or on the known public-domain list. A "public domain"
+    // or Creative Commons label set by whoever uploaded a film is not enough on its own: uploaders
+    // sometimes put those labels on copyrighted films.
+    // Films made by NASA (a US government agency) are public domain at any age.
+    const usGov = shelf.usGov && /\bnasa\b|national aeronautics/i.test(`${it.title} ${it.creator || ""} ${it.subjects || ""}`);
+    const openOk = shelf.licensed || usGov || (shelf.requireOpenLicense && isCreativeCommons(it.license));
+    if (year > COPYRIGHT_CUTOFF_YEAR && !openOk && !PUBLIC_DOMAIN_EXCEPTIONS.test(it.title)) return false;
     if (shelf.level !== undefined && shelf.level <= 1 && !shelf.licensed && year > KIDS_LATEST_YEAR && !isOpenLicense(it.license)) return false;
     const mins = minutes(it.runtime);
     if (mins !== null && mins < Math.max(MIN_MINUTES, shelf.minMinutes || 0)) return false;
